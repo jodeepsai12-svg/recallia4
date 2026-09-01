@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link2, Check, X, ArrowRight } from 'lucide-react';
+import { Link2, Check, X } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { GameResult, GameDifficulty } from '@/types';
 
 interface ObjectAssociationProps {
@@ -7,65 +8,72 @@ interface ObjectAssociationProps {
   onComplete: (result: GameResult) => void;
 }
 
-interface Question {
-  prompt: string;
+interface QuestionDef {
+  id: number;
   promptEmoji: string;
-  options: { label: string; emoji: string; correct: boolean }[];
+  defaultPrompt: string;
+  options: { defaultLabel: string; emoji: string; correct: boolean }[];
 }
 
-const QUESTIONS: Question[] = [
+const BASE_QUESTIONS: QuestionDef[] = [
   {
-    prompt: 'What do you use with a key?',
+    id: 0,
     promptEmoji: '🔑',
+    defaultPrompt: 'What do you use with a key?',
     options: [
-      { label: 'Door', emoji: '🚪', correct: true },
-      { label: 'Plate', emoji: '🍽️', correct: false },
-      { label: 'Pillow', emoji: '😴', correct: false },
+      { defaultLabel: 'Door', emoji: '🚪', correct: true },
+      { defaultLabel: 'Plate', emoji: '🍽️', correct: false },
+      { defaultLabel: 'Pillow', emoji: '😴', correct: false },
     ],
   },
   {
-    prompt: 'What goes with a cup?',
+    id: 1,
     promptEmoji: '☕',
+    defaultPrompt: 'What goes with a cup?',
     options: [
-      { label: 'Saucer', emoji: '🫗', correct: true },
-      { label: 'Shoe', emoji: '👟', correct: false },
-      { label: 'Tree', emoji: '🌳', correct: false },
+      { defaultLabel: 'Saucer', emoji: '🫗', correct: true },
+      { defaultLabel: 'Shoe', emoji: '👟', correct: false },
+      { defaultLabel: 'Tree', emoji: '🌳', correct: false },
     ],
   },
   {
-    prompt: 'What do you need for an umbrella?',
+    id: 2,
     promptEmoji: '☂️',
+    defaultPrompt: 'What do you need for an umbrella?',
     options: [
-      { label: 'Rain', emoji: '🌧️', correct: true },
-      { label: 'Oven', emoji: '🔥', correct: false },
-      { label: 'Bed', emoji: '🛏️', correct: false },
+      { defaultLabel: 'Rain', emoji: '🌧️', correct: true },
+      { defaultLabel: 'Oven', emoji: '🔥', correct: false },
+      { defaultLabel: 'Bed', emoji: '🛏️', correct: false },
     ],
   },
   {
-    prompt: 'What goes with a book?',
+    id: 3,
     promptEmoji: '📚',
+    defaultPrompt: 'What goes with a book?',
     options: [
-      { label: 'Bookmark', emoji: '🔖', correct: true },
-      { label: 'Soap', emoji: '🧼', correct: false },
-      { label: 'Tire', emoji: '🛞', correct: false },
+      { defaultLabel: 'Bookmark', emoji: '🔖', correct: true },
+      { defaultLabel: 'Soap', emoji: '🧼', correct: false },
+      { defaultLabel: 'Tire', emoji: '🛞', correct: false },
     ],
   },
   {
-    prompt: 'What do you wear with shoes?',
+    id: 4,
     promptEmoji: '👟',
+    defaultPrompt: 'What do you wear with shoes?',
     options: [
-      { label: 'Socks', emoji: '🧦', correct: true },
-      { label: 'Cloud', emoji: '☁️', correct: false },
-      { label: 'Banana', emoji: '🍌', correct: false },
+      { defaultLabel: 'Socks', emoji: '🧦', correct: true },
+      { defaultLabel: 'Cloud', emoji: '☁️', correct: false },
+      { defaultLabel: 'Banana', emoji: '🍌', correct: false },
     ],
   },
   {
-    prompt: 'What goes with a pen?',
+    id: 5,
     promptEmoji: '🖊️',
+    defaultPrompt: 'What goes with a pen?',
     options: [
-      { label: 'Paper', emoji: '📄', correct: true },
-      { label: 'Helmet', emoji: '⛑️', correct: false },
-      { label: 'Fish', emoji: '🐟', correct: false },
+      { defaultLabel: 'Paper', emoji: '📄', correct: true },
+      { defaultLabel: 'Helmet', emoji: '⛑️', correct: false },
+      { defaultLabel: 'Fish', emoji: '🐟', correct: false },
     ],
   },
 ];
@@ -88,37 +96,42 @@ function shuffle<T>(arr: T[]): T[] {
 type Phase = 'playing' | 'feedback';
 
 export function ObjectAssociation({ difficulty, onComplete }: ObjectAssociationProps) {
+  const { t } = useI18n();
   const config = DIFFICULTY_CONFIG[difficulty];
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [phase, setPhase] = useState<Phase>('playing');
   const [mistakes, setMistakes] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [startTime, setStartTime] = useState(0);
-  const [questionStart, setQuestionStart] = useState(0);
 
   const initRound = useCallback(() => {
-    setQuestions(shuffle(QUESTIONS).slice(0, config.questionCount));
+    const indices = shuffle(BASE_QUESTIONS.map((_, i) => i)).slice(0, config.questionCount);
+    setSelectedIndices(indices);
     setCurrentQ(0);
     setMistakes(0);
     setCorrectCount(0);
     setPhase('playing');
     setStartTime(Date.now());
-    setQuestionStart(Date.now());
   }, [config]);
 
   useEffect(() => {
     initRound();
   }, [initRound]);
 
+  if (selectedIndices.length === 0) return null;
+
+  const currentBaseQ = BASE_QUESTIONS[selectedIndices[currentQ]];
+  const translatedQ = t.objectAssociation.questions?.[currentBaseQ.id];
+  const promptText = translatedQ?.prompt || currentBaseQ.defaultPrompt;
+
   const handleSelect = (index: number) => {
     if (phase !== 'playing') return;
     setSelected(index);
     setPhase('feedback');
 
-    const question = questions[currentQ];
-    const isCorrect = question.options[index].correct;
+    const isCorrect = currentBaseQ.options[index].correct;
 
     if (isCorrect) {
       setCorrectCount((c) => c + 1);
@@ -127,12 +140,13 @@ export function ObjectAssociation({ difficulty, onComplete }: ObjectAssociationP
     }
 
     setTimeout(() => {
-      if (currentQ + 1 >= questions.length) {
+      if (currentQ + 1 >= selectedIndices.length) {
         const responseTime = Date.now() - startTime;
-        const accuracy = Math.round((correctCount + (isCorrect ? 1 : 0)) / questions.length * 100);
+        const totalCorrect = correctCount + (isCorrect ? 1 : 0);
+        const accuracy = Math.round((totalCorrect / selectedIndices.length) * 100);
         onComplete({
           game_type: 'object_association',
-          score: (correctCount + (isCorrect ? 1 : 0)) * 100 - mistakes * 25,
+          score: totalCorrect * 100 - (mistakes + (isCorrect ? 0 : 1)) * 25,
           accuracy,
           mistakes: mistakes + (isCorrect ? 0 : 1),
           response_time_ms: responseTime,
@@ -142,40 +156,36 @@ export function ObjectAssociation({ difficulty, onComplete }: ObjectAssociationP
         setCurrentQ((q) => q + 1);
         setSelected(null);
         setPhase('playing');
-        setQuestionStart(Date.now());
       }
     }, 2000);
   };
-
-  if (questions.length === 0) return null;
-
-  const question = questions[currentQ];
 
   return (
     <div className="animate-fade-in text-center">
       <div className="mb-2 flex items-center justify-center gap-2">
         <Link2 className="h-5 w-5 text-coral-500" />
         <span className="text-sm font-bold text-teal-500">
-          Question {currentQ + 1} of {questions.length}
+          {t.objectAssociation.question} {currentQ + 1} {t.objectAssociation.of} {selectedIndices.length}
         </span>
       </div>
 
       {/* Prompt */}
       <div className="mx-auto mb-8 max-w-md">
         <div className="card !p-8">
-          <span className="text-6xl">{question.promptEmoji}</span>
+          <span className="text-6xl">{currentBaseQ.promptEmoji}</span>
           <p className="mt-4 font-display text-xl font-semibold text-teal-900">
-            {question.prompt}
+            {promptText}
           </p>
         </div>
       </div>
 
       {/* Options */}
       <div className="mx-auto grid max-w-lg gap-4 sm:grid-cols-3">
-        {question.options.map((option, index) => {
+        {currentBaseQ.options.map((option, index) => {
           const isSelected = selected === index;
           const showFeedback = phase === 'feedback' && isSelected;
           const showCorrect = phase === 'feedback' && option.correct;
+          const labelText = translatedQ?.options?.[index] || option.defaultLabel;
 
           return (
             <button
@@ -191,7 +201,7 @@ export function ObjectAssociation({ difficulty, onComplete }: ObjectAssociationP
               }`}
             >
               <span className="text-5xl">{option.emoji}</span>
-              <span className="text-base font-bold text-teal-800">{option.label}</span>
+              <span className="text-base font-bold text-teal-800">{labelText}</span>
               {showCorrect && (
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600">
                   <Check className="h-4 w-4 text-white" strokeWidth={3} />
@@ -209,7 +219,7 @@ export function ObjectAssociation({ difficulty, onComplete }: ObjectAssociationP
 
       {/* Progress dots */}
       <div className="mt-8 flex justify-center gap-2">
-        {questions.map((_, i) => (
+        {selectedIndices.map((_, i) => (
           <div
             key={i}
             className={`h-3 w-3 rounded-full ${

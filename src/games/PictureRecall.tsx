@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Eye, Check, X, ArrowRight } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { GameResult, GameDifficulty } from '@/types';
 
 interface PictureRecallProps {
@@ -44,6 +45,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
+  const { t } = useI18n();
   const config = DIFFICULTY_CONFIG[difficulty];
   const [phase, setPhase] = useState<Phase>('memorize');
   const [shownItems, setShownItems] = useState<PictureItem[]>([]);
@@ -51,7 +53,10 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [countdown, setCountdown] = useState(config.memorizeSec);
   const [startTime, setStartTime] = useState(0);
-  const [feedback, setFeedback] = useState<{ correct: boolean; item: PictureItem }[]>([]);
+
+  const getItemLabel = (item: PictureItem) => {
+    return t.pictureRecall.items[item.id as keyof typeof t.pictureRecall.items] || item.label;
+  };
 
   const initRound = useCallback(() => {
     const shuffled = shuffle(ALL_ITEMS);
@@ -60,7 +65,6 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
     setShownItems(shown);
     setDisplayItems(shuffle([...shown, ...remaining]));
     setSelected(new Set());
-    setFeedback([]);
     setPhase('memorize');
     setCountdown(config.memorizeSec);
   }, [config]);
@@ -92,12 +96,6 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
     const correct = displayItems.filter((i) => shownIds.has(i.id) && selected.has(i.id));
     const wrong = displayItems.filter((i) => !shownIds.has(i.id) && selected.has(i.id));
     const missed = shownItems.filter((i) => !selected.has(i.id));
-    const fb = [
-      ...correct.map((item) => ({ correct: true, item })),
-      ...wrong.map((item) => ({ correct: false, item })),
-      ...missed.map((item) => ({ correct: false, item })),
-    ];
-    setFeedback(fb);
 
     const responseTime = Date.now() - startTime;
     const accuracy = Math.round((correct.length / shownItems.length) * 100);
@@ -124,10 +122,10 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
         <div className="text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-coral-50 px-5 py-2.5 text-base font-bold text-coral-600">
             <Eye className="h-5 w-5" />
-            Memorize these objects
+            {t.pictureRecall.memorizeObjects}
           </div>
           <p className="mb-6 text-lg font-bold text-teal-600">
-            Starting in {countdown}...
+            {t.pictureRecall.startingIn} {countdown}...
           </p>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {shownItems.map((item) => (
@@ -136,7 +134,7 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
                 className="card flex flex-col items-center gap-2 !p-5 animate-gentle-pulse"
               >
                 <span className="text-5xl">{item.emoji}</span>
-                <span className="text-base font-bold text-teal-800">{item.label}</span>
+                <span className="text-base font-bold text-teal-800">{getItemLabel(item)}</span>
               </div>
             ))}
           </div>
@@ -147,10 +145,10 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
         <div className="text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-teal-50 px-5 py-2.5 text-base font-bold text-teal-700">
             <Check className="h-5 w-5" />
-            Which objects did you see?
+            {t.pictureRecall.whichObjects}
           </div>
           <p className="mb-6 text-base font-semibold text-teal-500">
-            Tap the ones you remember. Then press Done.
+            {t.pictureRecall.tapRemember}
           </p>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {displayItems.map((item) => {
@@ -166,7 +164,7 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
                   }`}
                 >
                   <span className="text-5xl">{item.emoji}</span>
-                  <span className="text-base font-bold text-teal-800">{item.label}</span>
+                  <span className="text-base font-bold text-teal-800">{getItemLabel(item)}</span>
                   {isSelected && (
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600">
                       <Check className="h-4 w-4 text-white" strokeWidth={3} />
@@ -180,7 +178,7 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
             onClick={handleSubmit}
             className="btn-primary mt-8"
           >
-            Done
+            {t.pictureRecall.done}
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
@@ -201,15 +199,15 @@ export function PictureRecall({ difficulty, onComplete }: PictureRecallProps) {
                   }`}
                 >
                   <span className="text-5xl">{item.emoji}</span>
-                  <span className="text-base font-bold text-teal-800">{item.label}</span>
+                  <span className="text-base font-bold text-teal-800">{getItemLabel(item)}</span>
                   <div className="flex items-center gap-1.5 text-sm font-bold">
                     {isCorrect ? (
                       <span className="text-teal-600">
-                        <Check className="inline h-4 w-4" /> Correct
+                        <Check className="inline h-4 w-4" /> {t.pictureRecall.correct}
                       </span>
                     ) : (
                       <span className="text-coral-600">
-                        <X className="inline h-4 w-4" /> {wasShown ? 'Was shown' : 'Was not shown'}
+                        <X className="inline h-4 w-4" /> {wasShown ? t.pictureRecall.wasShown : t.pictureRecall.wasNotShown}
                       </span>
                     )}
                   </div>

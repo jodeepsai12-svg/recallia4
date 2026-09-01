@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Brain, ArrowRight } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { GameResult, GameDifficulty } from '@/types';
 
 interface SequenceMemoryProps {
@@ -18,6 +19,7 @@ type Phase = 'watching' | 'playing' | 'feedback';
 const TILE_COUNT = 4;
 
 export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) {
+  const { t } = useI18n();
   const config = DIFFICULTY_CONFIG[difficulty];
   const [phase, setPhase] = useState<Phase>('watching');
   const [sequence, setSequence] = useState<number[]>([]);
@@ -25,7 +27,6 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
   const [playerStep, setPlayerStep] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [startTime, setStartTime] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initRound = useCallback(() => {
@@ -35,7 +36,6 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
     setSequence(seq);
     setPlayerStep(0);
     setMistakes(0);
-    setCorrectCount(0);
     setPhase('watching');
   }, [config]);
 
@@ -80,7 +80,6 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
       setTimeout(() => setActiveTile(null), 300);
       const nextStep = playerStep + 1;
       setPlayerStep(nextStep);
-      setCorrectCount((c) => c + 1);
 
       if (nextStep >= sequence.length) {
         const responseTime = Date.now() - startTime;
@@ -117,10 +116,10 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
         <div className="mb-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-coral-50 px-5 py-2.5 text-base font-bold text-coral-600">
             <Brain className="h-5 w-5" />
-            Watch the sequence
+            {t.sequenceMemory.watchSequence}
           </div>
           <p className="text-base font-semibold text-teal-500">
-            Remember the order, then repeat it.
+            {t.sequenceMemory.rememberOrder}
           </p>
         </div>
       )}
@@ -129,10 +128,10 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
         <div className="mb-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-teal-50 px-5 py-2.5 text-base font-bold text-teal-700">
             <ArrowRight className="h-5 w-5" />
-            Your turn — tap in the same order
+            {t.sequenceMemory.yourTurn}
           </div>
           <p className="text-base font-semibold text-teal-500">
-            Step {playerStep + 1} of {sequence.length}
+            {t.sequenceMemory.step} {playerStep + 1} {t.sequenceMemory.of} {sequence.length}
           </p>
         </div>
       )}
@@ -141,7 +140,7 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
         <div className="mb-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-teal-100 px-5 py-2.5 text-base font-bold text-teal-700">
             <Brain className="h-5 w-5" />
-            Sequence complete!
+            {t.sequenceMemory.sequenceComplete}
           </div>
         </div>
       )}
@@ -163,7 +162,7 @@ export function SequenceMemory({ difficulty, onComplete }: SequenceMemoryProps) 
 
       {phase === 'playing' && mistakes > 0 && (
         <p className="mt-4 text-sm font-bold text-coral-500">
-          {mistakes} {mistakes === 1 ? 'mistake' : 'mistakes'} so far — keep going!
+          {mistakes} {mistakes === 1 ? t.sequenceMemory.mistake : t.sequenceMemory.mistakes} {t.sequenceMemory.keepGoing}
         </p>
       )}
     </div>

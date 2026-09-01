@@ -1,0 +1,8 @@
+{
+  "name": "Recallia",
+  "description": "Gentle daily cognitive activities for elderly mental wellness",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

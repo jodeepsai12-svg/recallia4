@@ -2,21 +2,26 @@ import type { Translations } from './types';
 
 export const en: Translations = {
   languageSelect: {
+    title: 'Welcome to Recallia',
     welcome: 'Welcome to Recallia',
     chooseLanguage: 'Choose your preferred language',
-    continue: 'Continue',
+    subtitle: 'Select the language you feel most comfortable with for your daily activities.',
+    continue: 'Continue to Recallia',
+    selectLanguage: 'Select Language',
+    selectedBadge: 'Selected',
+    stateLabel: 'State / Region',
   },
 
   languages: {
-    en: 'English',
-    as: 'Assamese',
-    bn: 'Bengali',
-    brx: 'Bodo',
+    as: 'Assamese (অসমীয়া)',
+    nyi: 'Nyishi',
+    mni: 'Meitei (ꯃꯤꯇꯩ ꯂꯣꯟ)',
     kha: 'Khasi',
-    gar: 'Garo',
-    mni: 'Meitei (Manipuri)',
-    lus: 'Mizo',
-    kok: 'Kokborok',
+    lus: 'Mizo (Mizo ṭawng)',
+    ao: 'Ao',
+    ne: 'Nepali (नेपाली)',
+    kok: 'Kokborok (ককবরক)',
+    en: 'English',
   },
 
   landing: {
@@ -105,6 +110,8 @@ export const en: Translations = {
     sessionPlural: 'sessions',
     avg: 'avg',
     disclaimer: 'Recallia provides gentle cognitive activities for daily engagement. It does not diagnose dementia or measure medical cognitive decline.',
+    changeLanguage: 'Change language',
+    currentLanguage: 'Current language',
   },
 
   difficulty: {
@@ -268,13 +275,16 @@ export const en: Translations = {
     title: 'Settings',
     back: 'Back',
     language: 'Language',
-    languageDescription: 'Change the language of the entire application.',
+    languageDescription: 'Change the language of the entire application across all activities and screens.',
     changeLanguage: 'Change language',
+    close: 'Close',
   },
 
   common: {
     back: 'Back',
     cancel: 'Cancel',
     confirm: 'Confirm',
+    select: 'Select',
+    close: 'Close',
   },
 };

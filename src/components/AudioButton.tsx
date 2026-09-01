@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useVoice } from '@/context/VoiceContext';
+import { useI18n } from '@/i18n';
 import { Volume2, Square } from 'lucide-react';
-import { speak, stopSpeaking } from '@/lib/audio';
 
 interface AudioButtonProps {
   text: string;
@@ -9,42 +9,32 @@ interface AudioButtonProps {
 }
 
 export function AudioButton({ text, label = 'Play instructions', className = '' }: AudioButtonProps) {
-  const [playing, setPlaying] = useState(false);
-
-  useEffect(() => {
-    return () => stopSpeaking();
-  }, []);
+  const { speak, stopSpeaking, isSpeaking } = useVoice();
+  const { language } = useI18n();
 
   const handleClick = () => {
-    if (playing) {
+    if (isSpeaking) {
       stopSpeaking();
-      setPlaying(false);
-      return;
+    } else {
+      speak(text, language);
     }
-    setPlaying(true);
-    speak(text);
-    const checkInterval = setInterval(() => {
-      if (!window.speechSynthesis.speaking) {
-        setPlaying(false);
-        clearInterval(checkInterval);
-      }
-    }, 200);
   };
 
   return (
     <button
       onClick={handleClick}
+      type="button"
       className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-50 px-6 py-3 text-base font-bold text-teal-700 ring-2 ring-teal-100 transition-all hover:bg-teal-100 hover:ring-teal-200 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-teal-200 ${className}`}
     >
-      {playing ? (
+      {isSpeaking ? (
         <>
-          <Square className="h-5 w-5" />
-          Stop
+          <Square className="h-5 w-5 text-teal-700" />
+          <span>Stop</span>
         </>
       ) : (
         <>
-          <Volume2 className="h-5 w-5" />
-          {label}
+          <Volume2 className="h-5 w-5 text-teal-600" />
+          <span>{label}</span>
         </>
       )}
     </button>

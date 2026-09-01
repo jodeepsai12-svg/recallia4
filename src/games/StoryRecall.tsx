@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BookOpen, Check, X, ArrowRight } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { GameResult, GameDifficulty } from '@/types';
 
 interface StoryRecallProps {
@@ -7,78 +8,80 @@ interface StoryRecallProps {
   onComplete: (result: GameResult) => void;
 }
 
-interface StoryQuestion {
-  question: string;
-  options: string[];
-  correctIndex: number;
+interface BaseStoryDef {
+  id: number;
+  defaultTitle: string;
+  defaultText: string;
+  questions: {
+    defaultQuestion: string;
+    defaultOptions: string[];
+    correctIndex: number;
+  }[];
 }
 
-interface Story {
-  title: string;
-  text: string;
-  questions: StoryQuestion[];
-}
-
-const STORIES: Story[] = [
+const BASE_STORIES: BaseStoryDef[] = [
   {
-    title: 'A Morning Walk',
-    text: 'Mary woke up early on Sunday. She put on her blue coat and walked to the park. At the park, she met her friend Tom. They sat on a bench and shared a basket of apples. Then Mary walked home and made a cup of tea.',
+    id: 0,
+    defaultTitle: 'A Morning Walk',
+    defaultText: 'Mary woke up early on Sunday. She put on her blue coat and walked to the park. At the park, she met her friend Tom. They sat on a bench and shared a basket of apples. Then Mary walked home and made a cup of tea.',
     questions: [
       {
-        question: 'What day did Mary go to the park?',
-        options: ['Saturday', 'Sunday', 'Monday'],
+        defaultQuestion: 'What day did Mary go to the park?',
+        defaultOptions: ['Saturday', 'Sunday', 'Monday'],
         correctIndex: 1,
       },
       {
-        question: 'What color was Mary\'s coat?',
-        options: ['Red', 'Green', 'Blue'],
+        defaultQuestion: "What color was Mary's coat?",
+        defaultOptions: ['Red', 'Green', 'Blue'],
         correctIndex: 2,
       },
       {
-        question: 'Who did Mary meet at the park?',
-        options: ['Tom', 'Anna', 'Her sister'],
+        defaultQuestion: 'Who did Mary meet at the park?',
+        defaultOptions: ['Tom', 'Anna', 'Her sister'],
         correctIndex: 0,
       },
     ],
   },
   {
-    title: 'The Garden',
-    text: 'James decided to plant a garden in his backyard. He bought tomato seeds, carrot seeds, and sunflower seeds. He planted them in three rows. Every morning he watered the garden before breakfast. By summer, the sunflowers grew taller than his fence.',
+    id: 1,
+    defaultTitle: 'The Garden',
+    defaultText: 'James decided to plant a garden in his backyard. He bought tomato seeds, carrot seeds, and sunflower seeds. He planted them in three rows. Every morning he watered the garden before breakfast. By summer, the sunflowers grew taller than his fence.',
     questions: [
       {
-        question: 'What did James plant?',
-        options: ['Tomatoes, carrots, and sunflowers', 'Roses and tulips', 'Only tomatoes'],
+        defaultQuestion: 'What did James plant?',
+        defaultOptions: ['Tomatoes, carrots, and sunflowers', 'Roses and tulips', 'Only tomatoes'],
         correctIndex: 0,
       },
       {
-        question: 'When did James water the garden?',
-        options: ['After dinner', 'Before breakfast', 'At noon'],
+        defaultQuestion: 'When did James water the garden?',
+        defaultOptions: ['After dinner', 'Before breakfast', 'At noon'],
         correctIndex: 1,
       },
       {
-        question: 'What grew taller than the fence?',
-        options: ['The carrots', 'The tomatoes', 'The sunflowers'],
+        defaultQuestion: 'What grew taller than the fence?',
+        defaultOptions: ['The carrots', 'The tomatoes', 'The sunflowers'],
         correctIndex: 2,
       },
     ],
   },
   {
-    title: 'The Library Visit',
-    text: 'Anna loves reading. Every Wednesday she visits the library. Last week she borrowed a book about the ocean and a book about birds. The librarian, Mr. Lee, helped her find a comfortable chair by the window. Anna read for two hours, then returned both books.',
+    id: 2,
+    defaultTitle: 'The Library Visit',
+    defaultText: 'Anna loves reading. Every Wednesday she visits the library. Last week she borrowed a book about the ocean and a book about birds. The librarian, Mr. Lee, helped her find a comfortable chair by the window. Anna read for two hours, then returned both books.',
     questions: [
       {
-        question: 'Which day does Anna visit the library?',
-        options: ['Monday', 'Wednesday', 'Friday'],
+        defaultQuestion: 'Which day does Anna visit the library?',
+        defaultOptions: ['Monday', 'Wednesday', 'Friday'],
         correctIndex: 1,
       },
       {
-        question: 'What books did Anna borrow?',
-        options: ['Ocean and birds', 'Cooking and travel', 'History and art'],
+        defaultQuestion: 'What books did Anna borrow?',
+        defaultOptions: ['Ocean and birds', 'Cooking and travel', 'History and art'],
         correctIndex: 0,
       },
       {
-        question: 'Who helped Anna find a chair?',
-        options: ['Mrs. Park', 'Mr. Lee', 'Anna herself'],
+        defaultQuestion: 'Who helped Anna find a chair?',
+        defaultOptions: ['Mrs. Park', 'Mr. Lee', 'Anna herself'],
         correctIndex: 1,
       },
     ],
@@ -88,7 +91,8 @@ const STORIES: Story[] = [
 type Phase = 'reading' | 'questions' | 'feedback';
 
 export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
-  const [story, setStory] = useState<Story | null>(null);
+  const { t } = useI18n();
+  const [storyIndex, setStoryIndex] = useState<number>(0);
   const [phase, setPhase] = useState<Phase>('reading');
   const [currentQ, setCurrentQ] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -97,7 +101,8 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
   const [startTime, setStartTime] = useState(0);
 
   const initRound = useCallback(() => {
-    setStory(STORIES[Math.floor(Math.random() * STORIES.length)]);
+    const idx = Math.floor(Math.random() * BASE_STORIES.length);
+    setStoryIndex(idx);
     setPhase('reading');
     setCurrentQ(0);
     setMistakes(0);
@@ -109,18 +114,27 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
     initRound();
   }, [initRound]);
 
+  const baseStory = BASE_STORIES[storyIndex];
+  const translatedStory = t.storyRecall.stories?.[storyIndex];
+  const storyTitle = translatedStory?.title || baseStory.defaultTitle;
+  const storyText = translatedStory?.text || baseStory.defaultText;
+  const questionsCount = baseStory.questions.length;
+
+  const currentBaseQ = baseStory.questions[currentQ];
+  const translatedQ = translatedStory?.questions?.[currentQ];
+  const questionPrompt = translatedQ?.question || currentBaseQ.defaultQuestion;
+
   const handleStartQuestions = () => {
     setPhase('questions');
     setStartTime(Date.now());
   };
 
   const handleAnswer = (index: number) => {
-    if (phase !== 'questions' || !story) return;
+    if (phase !== 'questions') return;
     setSelected(index);
     setPhase('feedback');
 
-    const question = story.questions[currentQ];
-    const isCorrect = index === question.correctIndex;
+    const isCorrect = index === currentBaseQ.correctIndex;
 
     if (isCorrect) {
       setCorrectCount((c) => c + 1);
@@ -129,10 +143,10 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
     }
 
     setTimeout(() => {
-      if (currentQ + 1 >= story.questions.length) {
+      if (currentQ + 1 >= questionsCount) {
         const responseTime = Date.now() - startTime;
         const totalCorrect = correctCount + (isCorrect ? 1 : 0);
-        const accuracy = Math.round((totalCorrect / story.questions.length) * 100);
+        const accuracy = Math.round((totalCorrect / questionsCount) * 100);
         onComplete({
           game_type: 'story_recall',
           score: totalCorrect * 100 - (mistakes + (isCorrect ? 0 : 1)) * 25,
@@ -149,26 +163,24 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
     }, 2000);
   };
 
-  if (!story) return null;
-
   return (
     <div className="animate-fade-in">
       {phase === 'reading' && (
         <div className="text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-coral-50 px-5 py-2.5 text-base font-bold text-coral-600">
             <BookOpen className="h-5 w-5" />
-            Read this story carefully
+            {t.storyRecall.readCarefully}
           </div>
 
           <div className="card mx-auto max-w-2xl !p-8 text-left">
             <h3 className="mb-4 font-display text-2xl font-semibold text-teal-900">
-              {story.title}
+              {storyTitle}
             </h3>
-            <p className="text-lg leading-relaxed text-teal-700">{story.text}</p>
+            <p className="text-lg leading-relaxed text-teal-700">{storyText}</p>
           </div>
 
           <button onClick={handleStartQuestions} className="btn-primary mt-8">
-            I'm ready for questions
+            {t.storyRecall.readyForQuestions}
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
@@ -179,23 +191,24 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
           <div className="mb-2 flex items-center justify-center gap-2">
             <BookOpen className="h-5 w-5 text-teal-600" />
             <span className="text-sm font-bold text-teal-500">
-              Question {currentQ + 1} of {story.questions.length}
+              {t.storyRecall.question} {currentQ + 1} {t.storyRecall.of} {questionsCount}
             </span>
           </div>
 
           <div className="mx-auto mb-8 max-w-xl">
             <div className="card !p-6">
               <p className="font-display text-xl font-semibold text-teal-900">
-                {story.questions[currentQ].question}
+                {questionPrompt}
               </p>
             </div>
           </div>
 
           <div className="mx-auto grid max-w-lg gap-3">
-            {story.questions[currentQ].options.map((option, index) => {
+            {currentBaseQ.defaultOptions.map((defaultOption, index) => {
               const isSelected = selected === index;
               const showFeedback = phase === 'feedback' && isSelected;
-              const showCorrect = phase === 'feedback' && index === story.questions[currentQ].correctIndex;
+              const showCorrect = phase === 'feedback' && index === currentBaseQ.correctIndex;
+              const optionLabel = translatedQ?.options?.[index] || defaultOption;
 
               return (
                 <button
@@ -210,7 +223,7 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
                         : 'hover:shadow-soft-lg'
                   }`}
                 >
-                  <span className="text-lg font-bold text-teal-800">{option}</span>
+                  <span className="text-lg font-bold text-teal-800">{optionLabel}</span>
                   {showCorrect && (
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-600">
                       <Check className="h-5 w-5 text-white" strokeWidth={3} />
@@ -228,7 +241,7 @@ export function StoryRecall({ difficulty, onComplete }: StoryRecallProps) {
 
           {/* Progress dots */}
           <div className="mt-8 flex justify-center gap-2">
-            {story.questions.map((_, i) => (
+            {baseStory.questions.map((_, i) => (
               <div
                 key={i}
                 className={`h-3 w-3 rounded-full ${

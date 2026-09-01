@@ -225,7 +225,6 @@ export function getRecommendedGame(sessions: GameSession[]): GameRecommendation 
 
   if (weakest) {
     gameType = weakest.gameType;
-    const game = getGame(gameType)!;
     whyThisActivity = weakest.reason;
   } else {
     gameType = GAMES[0].type;

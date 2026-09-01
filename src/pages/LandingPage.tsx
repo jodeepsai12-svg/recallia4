@@ -1,34 +1,54 @@
-import { Brain, BookOpen, Puzzle, Heart, ArrowRight, Check } from 'lucide-react';
+import { Brain, BookOpen, Puzzle, Heart, ArrowRight, Check, Globe } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { useI18n } from '@/i18n';
+import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
 
 interface LandingPageProps {
   onGetStarted: () => void;
   onSignIn: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingPageProps) {
+  const { t, currentLanguageMeta } = useI18n();
+
   return (
     <div className="min-h-screen bg-sand-50">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-teal-50 bg-sand-50/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Logo />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-teal-100/80 bg-teal-50/70 px-3 py-2 text-xs font-bold text-teal-800 transition-colors hover:bg-teal-100 sm:text-sm"
+                title="Change language"
+              >
+                <Globe className="h-4 w-4 text-teal-600" />
+                <span>{currentLanguageMeta.nativeName}</span>
+              </button>
+            )}
             <button
               onClick={onSignIn}
-              className="rounded-xl px-5 py-2.5 text-base font-bold text-teal-700 transition-colors hover:bg-teal-50"
+              className="rounded-xl px-4 py-2.5 text-base font-bold text-teal-700 transition-colors hover:bg-teal-50"
             >
-              Sign In
+              {t.landing.signIn}
             </button>
             <button
               onClick={onGetStarted}
-              className="btn-primary !px-6 !py-3 !text-base"
+              className="btn-primary !px-5 !py-2.5 !text-base"
             >
-              Get Started
+              {t.landing.getStarted}
             </button>
           </div>
         </div>
       </nav>
+
+      {/* Voice Guide Control Bar */}
+      <VoiceGuideControlBar
+        currentScreenInstruction={`${t.landing.heroTitle}. ${t.landing.heroText}`}
+      />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -37,176 +57,195 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
             <div className="animate-fade-in-up">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700">
                 <Heart className="h-4 w-4" />
-                Cognitive wellness, made gentle
+                {t.landing.badge}
               </div>
               <h1 className="font-display text-4xl font-semibold leading-tight text-teal-900 md:text-5xl">
-                Keep your mind active with calm, daily activities
+                {t.landing.heroTitle}
               </h1>
               <p className="mt-6 max-w-md text-lg leading-relaxed text-teal-700">
-                Recallia offers simple, enjoyable exercises designed to help you stay
-                mentally engaged. Just a few minutes a day, at your own pace.
+                {t.landing.heroText}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button onClick={onGetStarted} className="btn-primary">
-                  Start your first activity
+                  {t.landing.ctaPrimary}
                   <ArrowRight className="h-5 w-5" />
                 </button>
                 <button onClick={onSignIn} className="btn-secondary">
-                  I already have an account
+                  {t.landing.ctaSecondary}
                 </button>
               </div>
               <p className="mt-6 text-sm font-semibold text-teal-500">
-                No medical diagnosis. No pressure. Just gentle practice.
+                {t.landing.heroNote}
               </p>
             </div>
 
-            {/* Illustration card */}
-            <div className="relative animate-fade-in-up [animation-delay:150ms]">
-              <div className="card relative overflow-hidden p-8">
-                <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-teal-50" />
-                <div className="absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-coral-50" />
-                <div className="relative">
-                  <div className="mb-6 flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
-                      <Brain className="h-7 w-7 text-teal-600" strokeWidth={2.5} />
+            {/* Illustration / Visual card */}
+            <div className="relative">
+              <div className="relative rounded-3xl border-2 border-teal-100 bg-white p-8 shadow-soft-lg md:p-10">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-teal-100">
+                  <Brain className="h-10 w-10 text-teal-600" strokeWidth={2.5} />
+                </div>
+                <h3 className="font-display text-2xl font-semibold text-teal-900">
+                  {t.landing.cardTitle}
+                </h3>
+                <p className="mt-3 text-lg leading-relaxed text-teal-700">
+                  {t.landing.cardText}
+                </p>
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                      <Check className="h-4 w-4" strokeWidth={3} />
                     </div>
-                    <div>
-                      <p className="font-display text-xl font-semibold text-teal-900">
-                        Today's Activity
-                      </p>
-                      <p className="text-sm font-semibold text-teal-500">5 minutes · Gentle</p>
-                    </div>
+                    {t.landing.feature1}
                   </div>
-                  <h3 className="font-display text-2xl font-semibold text-teal-900">
-                    Memory Match
-                  </h3>
-                  <p className="mt-2 text-base text-teal-600">
-                    Flip cards to find matching pairs and give your memory a gentle workout.
-                  </p>
-                  <div className="mt-6 flex items-center gap-2 rounded-2xl bg-sand-100 px-4 py-3">
-                    <Check className="h-5 w-5 text-teal-600" strokeWidth={3} />
-                    <span className="text-sm font-bold text-teal-700">
-                      Recommended based on your recent activity
-                    </span>
+                  <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </div>
+                    {t.landing.feature2}
+                  </div>
+                  <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </div>
+                    {t.landing.feature3}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-teal-50 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
-          <h2 className="text-center font-display text-3xl font-semibold text-teal-900 md:text-4xl">
-            Simple activities, real engagement
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-center text-lg text-teal-600">
-            Each exercise is designed to be approachable, enjoyable, and easy to follow.
-          </p>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: Brain,
-                title: 'Memory',
-                text: 'Gentle recall games that exercise your ability to remember and recognize.',
-                color: 'teal',
-              },
-              {
-                icon: BookOpen,
-                title: 'Language',
-                text: 'Story sequencing and word activities that keep your reading skills sharp.',
-                color: 'coral',
-              },
-              {
-                icon: Puzzle,
-                title: 'Problem Solving',
-                text: 'Calming puzzles that invite you to think at your own comfortable pace.',
-                color: 'sand',
-              },
-            ].map((feature) => (
-              <div key={feature.title} className="card transition-shadow hover:shadow-soft-lg">
-                <div
-                  className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    feature.color === 'teal'
-                      ? 'bg-teal-100'
-                      : feature.color === 'coral'
-                        ? 'bg-coral-100'
-                        : 'bg-sand-200'
-                  }`}
-                >
-                  <feature.icon
-                    className={`h-7 w-7 ${
-                      feature.color === 'teal'
-                        ? 'text-teal-600'
-                        : feature.color === 'coral'
-                          ? 'text-coral-600'
-                          : 'text-sand-500'
-                    }`}
-                    strokeWidth={2.5}
-                  />
-                </div>
-                <h3 className="font-display text-xl font-semibold text-teal-900">
-                  {feature.title}
-                </h3>
-                <p className="mt-2 text-base text-teal-600">{feature.text}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="bg-sand-50">
-        <div className="mx-auto max-w-4xl px-6 py-16 md:py-20">
-          <h2 className="text-center font-display text-3xl font-semibold text-teal-900 md:text-4xl">
-            How it works
-          </h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
-            {[
-              { step: '1', title: 'Sign in', text: 'Create your account or sign in to get started.' },
-              { step: '2', title: 'See your activity', text: 'Each day, we suggest one gentle exercise for you.' },
-              { step: '3', title: 'Track progress', text: 'See what you have completed and celebrate your consistency.' },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-teal-600 font-display text-xl font-bold text-white shadow-soft">
-                  {item.step}
-                </div>
-                <h3 className="font-display text-xl font-semibold text-teal-900">{item.title}</h3>
-                <p className="mt-2 text-base text-teal-600">{item.text}</p>
+      <section className="border-t border-teal-50 bg-white py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="text-center">
+            <h2 className="font-display text-3xl font-semibold text-teal-900 md:text-4xl">
+              {t.landing.howItWorksTitle}
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-lg text-teal-700">
+              {t.landing.howItWorksSubtitle}
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-8 md:grid-cols-3">
+            {/* Step 1 */}
+            <div className="card text-center">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-700 font-display text-2xl font-bold">
+                1
               </div>
-            ))}
+              <h3 className="font-display text-xl font-semibold text-teal-900">
+                {t.landing.step1Title}
+              </h3>
+              <p className="mt-3 text-base leading-relaxed text-teal-700">
+                {t.landing.step1Text}
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="card text-center">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-700 font-display text-2xl font-bold">
+                2
+              </div>
+              <h3 className="font-display text-xl font-semibold text-teal-900">
+                {t.landing.step2Title}
+              </h3>
+              <p className="mt-3 text-base leading-relaxed text-teal-700">
+                {t.landing.step2Text}
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="card text-center">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-coral-100 text-coral-600 font-display text-2xl font-bold">
+                3
+              </div>
+              <h3 className="font-display text-xl font-semibold text-teal-900">
+                {t.landing.step3Title}
+              </h3>
+              <p className="mt-3 text-base leading-relaxed text-teal-700">
+                {t.landing.step3Text}
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-3xl px-6 py-16 md:py-20 text-center">
-          <h2 className="font-display text-3xl font-semibold text-teal-900 md:text-4xl">
-            Ready to keep your mind active?
-          </h2>
-          <p className="mt-4 text-lg text-teal-600">
-            It takes less than a minute to get started. No medical diagnosis, no pressure.
-          </p>
-          <button onClick={onGetStarted} className="btn-primary mt-8">
-            Create your free account
-            <ArrowRight className="h-5 w-5" />
-          </button>
+      {/* Activity types preview */}
+      <section className="py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="text-center">
+            <h2 className="font-display text-3xl font-semibold text-teal-900 md:text-4xl">
+              {t.landing.activitiesTitle}
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-lg text-teal-700">
+              {t.landing.activitiesSubtitle}
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="card">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
+                <Brain className="h-7 w-7 text-teal-600" strokeWidth={2.5} />
+              </div>
+              <h4 className="font-display text-lg font-semibold text-teal-900">
+                {t.landing.activity1Title}
+              </h4>
+              <p className="mt-2 text-sm leading-relaxed text-teal-700">
+                {t.landing.activity1Text}
+              </p>
+            </div>
+
+            <div className="card">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sand-200">
+                <BookOpen className="h-7 w-7 text-sand-600" strokeWidth={2.5} />
+              </div>
+              <h4 className="font-display text-lg font-semibold text-teal-900">
+                {t.landing.activity2Title}
+              </h4>
+              <p className="mt-2 text-sm leading-relaxed text-teal-700">
+                {t.landing.activity2Text}
+              </p>
+            </div>
+
+            <div className="card">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-coral-100">
+                <Puzzle className="h-7 w-7 text-coral-600" strokeWidth={2.5} />
+              </div>
+              <h4 className="font-display text-lg font-semibold text-teal-900">
+                {t.landing.activity3Title}
+              </h4>
+              <p className="mt-2 text-sm leading-relaxed text-teal-700">
+                {t.landing.activity3Text}
+              </p>
+            </div>
+
+            <div className="card">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
+                <Heart className="h-7 w-7 text-teal-600" strokeWidth={2.5} />
+              </div>
+              <h4 className="font-display text-lg font-semibold text-teal-900">
+                {t.landing.activity4Title}
+              </h4>
+              <p className="mt-2 text-sm leading-relaxed text-teal-700">
+                {t.landing.activity4Text}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-teal-50 bg-sand-50">
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <Logo />
-            <p className="text-sm font-semibold text-teal-500">
-              Recallia does not diagnose dementia or measure medical cognitive decline.
-            </p>
-          </div>
+      <footer className="border-t border-teal-50 bg-white py-12">
+        <div className="mx-auto max-w-6xl px-6 text-center">
+          <Logo />
+          <p className="mt-4 text-sm font-semibold text-teal-500">
+            {t.landing.footerNote}
+          </p>
+          <p className="mt-2 text-xs text-sand-500">
+            {t.landing.copyright}
+          </p>
         </div>
       </footer>
     </div>

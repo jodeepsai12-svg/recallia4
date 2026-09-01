@@ -54,3 +54,18 @@ export interface GameSession {
   difficulty: GameDifficulty;
   created_at: string;
 }
+
+export interface EmergencyAlert {
+  id: string;
+  user_id: string;
+  participant_name: string;
+  message_text: string;
+  audio_url?: string;
+  audio_duration_seconds?: number;
+  tags?: string[];
+  status: 'pending' | 'acknowledged' | 'resolved';
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+}
+

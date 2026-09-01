@@ -1,15 +1,20 @@
 // Translation key types — all app strings are keyed here.
-// Each language file must provide every key in this interface.
+// Each language file provides every key in this interface.
 
 export interface Translations {
   // Language selection screen
   languageSelect: {
+    title: string;
     welcome: string;
     chooseLanguage: string;
+    subtitle: string;
     continue: string;
+    selectLanguage: string;
+    selectedBadge: string;
+    stateLabel: string;
   };
 
-  // Language names (shown in their own script)
+  // Language names
   languages: Record<string, string>;
 
   // Landing page
@@ -101,9 +106,11 @@ export interface Translations {
     sessionPlural: string;
     avg: string;
     disclaimer: string;
+    changeLanguage: string;
+    currentLanguage: string;
   };
 
-  // Difficulty labels
+  // Difficulty labels & trends
   difficulty: {
     gentle: string;
     moderate: string;
@@ -220,39 +227,45 @@ export interface Translations {
     };
   };
 
-  // Settings page
+  // Settings
   settings: {
     title: string;
     back: string;
     language: string;
     languageDescription: string;
     changeLanguage: string;
+    close: string;
   };
 
-  // General
+  // Common
   common: {
     back: string;
     cancel: string;
     confirm: string;
+    select: string;
+    close: string;
   };
 }
 
-// Supported languages metadata
+export type SupportedLanguageCode = 'as' | 'nyi' | 'mni' | 'kha' | 'lus' | 'ao' | 'ne' | 'kok' | 'en';
+
 export interface LanguageMeta {
-  code: string;
-  name: string;       // English name
-  nativeName: string;  // Name in the language itself
-  bcp47: string;       // BCP-47 tag for speech synthesis
+  code: SupportedLanguageCode;
+  state: string;
+  name: string;        // English name
+  nativeName: string;  // Name in native script/orthography
+  scriptDisplay: string;
+  bcp47: string;
 }
 
 export const LANGUAGES: LanguageMeta[] = [
-  { code: 'en', name: 'English', nativeName: 'English', bcp47: 'en-US' },
-  { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া', bcp47: 'as-IN' },
-  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', bcp47: 'bn-IN' },
-  { code: 'brx', name: 'Bodo', nativeName: 'बड़ो', bcp47: 'brx-IN' },
-  { code: 'kha', name: 'Khasi', nativeName: 'Khasi', bcp47: 'kha-IN' },
-  { code: 'gar', name: 'Garo', nativeName: 'A·chikku', bcp47: 'grt-IN' },
-  { code: 'mni', name: 'Meitei (Manipuri)', nativeName: 'মৈতৈ লোন্', bcp47: 'mni-IN' },
-  { code: 'lus', name: 'Mizo', nativeName: 'Mizo ṭawng', bcp47: 'lus-IN' },
-  { code: 'kok', name: 'Kokborok', nativeName: 'ককবরক', bcp47: 'kok-IN' },
+  { code: 'as', state: 'Assam', name: 'Assamese', nativeName: 'অসমীয়া', scriptDisplay: 'Assam — Assamese (অসমীয়া)', bcp47: 'as-IN' },
+  { code: 'nyi', state: 'Arunachal Pradesh', name: 'Nyishi', nativeName: 'Nyishi', scriptDisplay: 'Arunachal Pradesh — Nyishi', bcp47: 'njz-IN' },
+  { code: 'mni', state: 'Manipur', name: 'Meitei', nativeName: 'ꯃꯤꯇꯩ ꯂꯣꯟ', scriptDisplay: 'Manipur — Meitei (ꯃꯤꯇꯩ ꯂꯣꯟ)', bcp47: 'mni-Mtei' },
+  { code: 'kha', state: 'Meghalaya', name: 'Khasi', nativeName: 'Khasi', scriptDisplay: 'Meghalaya — Khasi', bcp47: 'kha-IN' },
+  { code: 'lus', state: 'Mizoram', name: 'Mizo', nativeName: 'Mizo ṭawng', scriptDisplay: 'Mizoram — Mizo (Mizo ṭawng)', bcp47: 'lus-IN' },
+  { code: 'ao', state: 'Nagaland', name: 'Ao', nativeName: 'Ao', scriptDisplay: 'Nagaland — Ao', bcp47: 'njo-IN' },
+  { code: 'ne', state: 'Sikkim', name: 'Nepali', nativeName: 'नेपाली', scriptDisplay: 'Sikkim — Nepali (नेपाली)', bcp47: 'ne-NP' },
+  { code: 'kok', state: 'Tripura', name: 'Kokborok', nativeName: 'ককবরক', scriptDisplay: 'Tripura — Kokborok (ককবরক)', bcp47: 'trp-IN' },
+  { code: 'en', state: 'General', name: 'English', nativeName: 'English', scriptDisplay: 'English', bcp47: 'en-US' },
 ];
