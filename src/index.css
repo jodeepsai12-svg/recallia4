@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans bg-sand-50 text-teal-900 antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+
+  /* Larger, more readable defaults for accessibility */
+  p {
+    @apply text-lg leading-relaxed;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-600 px-8 py-4 text-lg font-bold text-white shadow-soft-lg transition-all duration-200 hover:bg-teal-700 hover:shadow-soft-lg active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-teal-300;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-lg font-bold text-teal-700 ring-2 ring-teal-200 transition-all duration-200 hover:bg-teal-50 hover:ring-teal-300 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-teal-200;
+  }
+
+  .btn-coral {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-coral-500 px-8 py-4 text-lg font-bold text-white shadow-warm transition-all duration-200 hover:bg-coral-600 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-coral-200;
+  }
+
+  .card {
+    @apply rounded-3xl bg-white p-6 shadow-soft ring-1 ring-teal-50;
+  }
+
+  .input-field {
+    @apply w-full rounded-2xl border-2 border-teal-100 bg-white px-5 py-4 text-lg text-teal-900 placeholder:text-teal-300 transition-colors focus:border-teal-400 focus:outline-none focus:ring-4 focus:ring-teal-100;
+  }
+}
