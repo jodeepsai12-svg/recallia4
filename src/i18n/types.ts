@@ -51,6 +51,23 @@ export interface Translations {
     ctaText: string;
     ctaButton: string;
     footerDisclaimer: string;
+    cardTitle?: string;
+    cardText?: string;
+    feature1?: string;
+    feature2?: string;
+    feature3?: string;
+    activitiesTitle?: string;
+    activitiesSubtitle?: string;
+    activity1Title?: string;
+    activity1Text?: string;
+    activity2Title?: string;
+    activity2Text?: string;
+    activity3Title?: string;
+    activity3Text?: string;
+    activity4Title?: string;
+    activity4Text?: string;
+    footerNote?: string;
+    copyright?: string;
   };
 
   // Auth page

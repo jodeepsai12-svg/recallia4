@@ -232,14 +232,14 @@ export const VOICE_ANNOUNCEMENTS: Record<SupportedLanguageCode, Record<VoiceAnno
 
 // Map languages to preferred speech synthesis BCP-47 fallback chains
 export const BCP47_VOICE_MAP: Record<SupportedLanguageCode, string[]> = {
-  as: ['as-IN', 'as', 'bn-IN', 'hi-IN', 'en-IN'],
-  ne: ['ne-NP', 'ne-IN', 'ne', 'hi-IN', 'en-IN'],
-  mni: ['mni-Mtei', 'mni-IN', 'mni', 'hi-IN', 'bn-IN', 'en-IN'],
-  kok: ['trp-IN', 'kok-IN', 'bn-IN', 'hi-IN', 'en-IN'],
-  kha: ['kha-IN', 'en-IN', 'en-GB'],
-  lus: ['lus-IN', 'en-IN', 'en-GB'],
-  nyi: ['njz-IN', 'en-IN', 'hi-IN'],
-  ao: ['njo-IN', 'en-IN', 'en-GB'],
+  as: ['as-IN', 'as', 'bn-IN', 'bn-BD', 'bn'],
+  ne: ['ne-NP', 'ne-IN', 'ne', 'hi-IN', 'hi'],
+  mni: ['mni-Mtei', 'mni-IN', 'mni', 'bn-IN', 'hi-IN'],
+  kok: ['trp-IN', 'kok-IN', 'bn-IN', 'bn-BD', 'hi-IN'],
+  kha: ['kha-IN', 'en-IN', 'en-GB', 'en-US'],
+  lus: ['lus-IN', 'en-IN', 'en-GB', 'en-US'],
+  nyi: ['njz-IN', 'en-IN', 'en-GB', 'hi-IN'],
+  ao: ['njo-IN', 'en-IN', 'en-GB', 'en-US'],
   en: ['en-IN', 'en-US', 'en-GB'],
 };
 
@@ -250,6 +250,7 @@ export function findVoiceForLanguage(lang: SupportedLanguageCode): SpeechSynthes
 
   const candidateLocales = BCP47_VOICE_MAP[lang] || ['en-US'];
 
+  // Priority 1: Exact or prefix match with candidate locales
   for (const locale of candidateLocales) {
     const match = voices.find((v) => {
       const vLang = v.lang.toLowerCase().replace('_', '-');
@@ -259,9 +260,15 @@ export function findVoiceForLanguage(lang: SupportedLanguageCode): SpeechSynthes
     if (match) return match;
   }
 
-  // Fallback to any Indian English or primary voice
-  const indianVoice = voices.find((v) => v.lang.toLowerCase().includes('in'));
-  if (indianVoice) return indianVoice;
+  // Priority 2: For Latin-based NE languages or English, fallback to Indian English voice
+  if (['en', 'kha', 'lus', 'nyi', 'ao'].includes(lang)) {
+    const indianVoice = voices.find((v) => v.lang.toLowerCase().includes('in') || v.lang.toLowerCase().startsWith('en'));
+    if (indianVoice) return indianVoice;
+    return voices[0] || null;
+  }
 
-  return voices[0] || null;
+  // For non-Latin Indic scripts (as, ne, mni, kok), DO NOT return an English voice!
+  // Returning null lets SpeechSynthesisUtterance rely on utterance.lang so the OS
+  // handles native Indic font synthesis rather than garbling it with an English voice.
+  return null;
 }

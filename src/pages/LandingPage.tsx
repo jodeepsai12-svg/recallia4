@@ -62,7 +62,7 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
               <h1 className="font-display text-4xl font-semibold leading-tight text-teal-900 md:text-5xl">
                 {t.landing.heroTitle}
               </h1>
-              <p className="mt-6 max-w-md text-lg leading-relaxed text-teal-700">
+              <p className="mt-4 max-w-md text-lg leading-relaxed text-teal-700">
                 {t.landing.heroText}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -86,29 +86,26 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
                   <Brain className="h-10 w-10 text-teal-600" strokeWidth={2.5} />
                 </div>
                 <h3 className="font-display text-2xl font-semibold text-teal-900">
-                  {t.landing.cardTitle}
+                  {t.landing.cardTitle || 'Gentle Mind Exercises'}
                 </h3>
-                <p className="mt-3 text-lg leading-relaxed text-teal-700">
-                  {t.landing.cardText}
-                </p>
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700 shrink-0">
                       <Check className="h-4 w-4" strokeWidth={3} />
                     </div>
-                    {t.landing.feature1}
+                    <span>{t.landing.feature1 || 'Self-paced exercises with no timers or rush'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700 shrink-0">
                       <Check className="h-4 w-4" strokeWidth={3} />
                     </div>
-                    {t.landing.feature2}
+                    <span>{t.landing.feature2 || 'Spoken voice guidance in your preferred language'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-base font-semibold text-teal-800">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-700 shrink-0">
                       <Check className="h-4 w-4" strokeWidth={3} />
                     </div>
-                    {t.landing.feature3}
+                    <span>{t.landing.feature3 || 'Gentle daily routine to share with loved ones'}</span>
                   </div>
                 </div>
               </div>
@@ -177,10 +174,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
         <div className="mx-auto max-w-6xl px-6">
           <div className="text-center">
             <h2 className="font-display text-3xl font-semibold text-teal-900 md:text-4xl">
-              {t.landing.activitiesTitle}
+              {t.landing.activitiesTitle || 'Simple Daily Activities'}
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-lg text-teal-700">
-              {t.landing.activitiesSubtitle}
+              {t.landing.activitiesSubtitle || 'Four gentle ways to keep your mind sharp and relaxed.'}
             </p>
           </div>
 
@@ -190,10 +187,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
                 <Brain className="h-7 w-7 text-teal-600" strokeWidth={2.5} />
               </div>
               <h4 className="font-display text-lg font-semibold text-teal-900">
-                {t.landing.activity1Title}
+                {t.landing.activity1Title || 'Memory Match'}
               </h4>
               <p className="mt-2 text-sm leading-relaxed text-teal-700">
-                {t.landing.activity1Text}
+                {t.landing.activity1Text || 'Gentle card and picture recall exercises.'}
               </p>
             </div>
 
@@ -202,10 +199,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
                 <BookOpen className="h-7 w-7 text-sand-600" strokeWidth={2.5} />
               </div>
               <h4 className="font-display text-lg font-semibold text-teal-900">
-                {t.landing.activity2Title}
+                {t.landing.activity2Title || 'Words & Stories'}
               </h4>
               <p className="mt-2 text-sm leading-relaxed text-teal-700">
-                {t.landing.activity2Text}
+                {t.landing.activity2Text || 'Relaxing word games and pleasant stories.'}
               </p>
             </div>
 
@@ -214,10 +211,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
                 <Puzzle className="h-7 w-7 text-coral-600" strokeWidth={2.5} />
               </div>
               <h4 className="font-display text-lg font-semibold text-teal-900">
-                {t.landing.activity3Title}
+                {t.landing.activity3Title || 'Mind Puzzles'}
               </h4>
               <p className="mt-2 text-sm leading-relaxed text-teal-700">
-                {t.landing.activity3Text}
+                {t.landing.activity3Text || 'Simple, self-paced pattern and shape puzzles.'}
               </p>
             </div>
 
@@ -226,10 +223,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
                 <Heart className="h-7 w-7 text-teal-600" strokeWidth={2.5} />
               </div>
               <h4 className="font-display text-lg font-semibold text-teal-900">
-                {t.landing.activity4Title}
+                {t.landing.activity4Title || 'Daily Calm'}
               </h4>
               <p className="mt-2 text-sm leading-relaxed text-teal-700">
-                {t.landing.activity4Text}
+                {t.landing.activity4Text || 'Soothing breathing pauses and mindful reflections.'}
               </p>
             </div>
           </div>
@@ -241,10 +238,10 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
         <div className="mx-auto max-w-6xl px-6 text-center">
           <Logo />
           <p className="mt-4 text-sm font-semibold text-teal-500">
-            {t.landing.footerNote}
+            {t.landing.footerNote || 'Gentle cognitive wellness designed for everyday comfort.'}
           </p>
           <p className="mt-2 text-xs text-sand-500">
-            {t.landing.copyright}
+            {t.landing.copyright || '© Recallia. All rights reserved.'}
           </p>
         </div>
       </footer>

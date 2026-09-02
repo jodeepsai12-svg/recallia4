@@ -163,7 +163,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         id: `msg_${Date.now()}_user`,
         role: 'user',
         text: userText,
-        language: detectedLanguage,
+        language,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -198,7 +198,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
         let accumulatedText = '';
         let triggeredAction: string | null = null;
-        let responseLang = detectedLanguage || language;
+        let responseLang = language;
         let hasAddedBotMsg = false;
 
         const updateBotMessage = (text: string, lang: SupportedLanguageCode, action?: string | null) => {
@@ -260,9 +260,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
                   if (data.action) {
                     triggeredAction = data.action;
                   }
-                  if (data.detectedLanguage) {
-                    responseLang = data.detectedLanguage as SupportedLanguageCode;
-                    setDetectedLanguage(responseLang);
+                  if (data.detectedLanguage && data.detectedLanguage === language) {
+                    responseLang = language;
+                    setDetectedLanguage(language);
                   }
                 } catch {
                   // ignore JSON parse error on incomplete line
@@ -280,9 +280,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
                 updateBotMessage(accumulatedText, responseLang);
               }
               if (data.action) triggeredAction = data.action;
-              if (data.detectedLanguage) {
-                responseLang = data.detectedLanguage as SupportedLanguageCode;
-                setDetectedLanguage(responseLang);
+              if (data.detectedLanguage && data.detectedLanguage === language) {
+                responseLang = language;
+                setDetectedLanguage(language);
               }
             } catch {
               // ignore parse error
@@ -292,11 +292,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
         // Finalize bot message if text was received
         if (accumulatedText.trim()) {
-          updateBotMessage(accumulatedText, responseLang, triggeredAction);
+          updateBotMessage(accumulatedText, language, triggeredAction);
           setIsProcessingAI(false);
 
           if (isVoiceGuideEnabled) {
-            speak(accumulatedText, responseLang);
+            speak(accumulatedText, language);
           }
           if (triggeredAction) {
             handleAction(triggeredAction);
@@ -306,11 +306,18 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.warn('AI Assistant error (recovering with fallback):', err);
-        const fallbackText = language === 'as'
-          ? 'মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ।'
-          : language === 'ne'
-          ? 'म तपाईंलाई मद्दत गर्न तयार छु।'
-          : "I am ready to help you with your daily activities.";
+        const fallbackTexts: Record<SupportedLanguageCode, string> = {
+          as: 'মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ।',
+          ne: 'म तपाईंलाई मद्दत गर्न तयार छु।',
+          mni: 'ꯑꯩꯍꯥꯛ ꯅꯈꯣꯏꯕꯨ ꯃꯇꯦꯡ ꯄꯥꯡꯂꯒꯦ꯫',
+          kha: 'Nga la kloi ban iarap ia phi.',
+          lus: 'Puih che ka inpeih reng e.',
+          kok: 'Ang nungno chubano manai.',
+          nyi: 'Ngo no haam nyir gam kumtolo.',
+          ao: 'Ni ne den yariteptsü renema lir.',
+          en: 'I am ready to help you with your daily activities.',
+        };
+        const fallbackText = fallbackTexts[language] || fallbackTexts.en;
 
         const errorMsg: AssistantMessage = {
           id: `msg_${Date.now()}_bot`,
@@ -328,7 +335,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         setIsProcessingAI(false);
       }
     },
-    [assistantMessages, detectedLanguage, handleAction, isVoiceGuideEnabled, language, speak]
+    [assistantMessages, handleAction, isVoiceGuideEnabled, language, speak]
   );
 
   // Start voice assistant recording
@@ -359,9 +366,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           setIsListening(false);
         },
       },
-      detectedLanguage || language
+      language
     );
-  }, [detectedLanguage, language, sendMessageToAssistant, stopSpeaking]);
+  }, [language, sendMessageToAssistant, stopSpeaking]);
 
   const stopVoiceAssistantListening = useCallback(() => {
     speechRecognizer.stop();

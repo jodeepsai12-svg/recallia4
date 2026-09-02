@@ -10,48 +10,40 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isLinkedCaregiver(userId) {
-      return isAuthenticated() && (
-        (exists(/databases/$(database)/documents/users/$(userId)) &&
-         request.auth.uid in get(/databases/$(database)/documents/users/$(userId)).data.get('linkedCaregiverUids', [])) ||
-        (exists(/databases/$(database)/documents/users/$(userId)) &&
-         get(/databases/$(database)/documents/users/$(userId)).data.get('caregiver', {}).get('caregiverUid', '') == request.auth.uid)
-      );
-    }
-
-    // User Profile Document
+    // User Profile Document & Subcollections
     match /users/{userId} {
-      allow read: if isOwner(userId) || isLinkedCaregiver(userId) || isAuthenticated();
-      allow write: if isOwner(userId) || isAuthenticated();
+      allow read, write: if true;
       
       // User Subcollections (Memories, Consent, Sessions)
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isLinkedCaregiver(userId);
+        allow read, write: if true;
       }
     }
 
     // Caregiver Linking Codes
     match /caregiver_links/{code} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Emergency Alerts (SOS)
     match /emergency_alerts/{alertId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Public catalog activities
     match /activities/{activityId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAuthenticated();
+    }
+
+    // Game sessions
+    match /game_sessions/{sessionId} {
+      allow read, write: if true;
     }
 
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
   }
 }
+

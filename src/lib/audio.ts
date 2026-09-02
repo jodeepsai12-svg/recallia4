@@ -42,13 +42,25 @@ export function speak(
     utterance.pitch = options.pitch ?? 1.0;
     utterance.volume = options.volume ?? 1.0;
 
+    const PRIMARY_BCP47: Record<SupportedLanguageCode, string> = {
+      as: 'as-IN',
+      ne: 'ne-NP',
+      mni: 'mni-IN',
+      kok: 'bn-IN',
+      kha: 'en-IN',
+      lus: 'en-IN',
+      nyi: 'en-IN',
+      ao: 'en-IN',
+      en: 'en-US',
+    };
+
     const matchedVoice = findVoiceForLanguage(lang);
     if (matchedVoice) {
       utterance.voice = matchedVoice;
       utterance.lang = matchedVoice.lang;
     } else {
-      // Use standard BCP-47 tag
-      utterance.lang = lang === 'as' ? 'as-IN' : lang === 'ne' ? 'ne-NP' : 'en-US';
+      // Use standard BCP-47 tag corresponding to chosen language
+      utterance.lang = PRIMARY_BCP47[lang] || 'en-US';
     }
 
     utterance.onstart = () => {

@@ -133,18 +133,71 @@ app.post('/api/emergency/send-sms', async (req, res) => {
   }
 });
 
-const NE_LANGUAGES_INFO = `
-Supported North-Eastern Indian Languages & Dialects in Recallia:
-1. Assamese (অসমীয়া) [code: 'as', BCP-47: 'as-IN', Assam]
-2. Nyishi [code: 'nyi', BCP-47: 'njz-IN', Arunachal Pradesh]
-3. Meitei / Manipuri (ꯃꯤꯇꯩ ꯂꯣꯟ / মৈতৈলোন্) [code: 'mni', BCP-47: 'mni-Mtei', Manipur]
-4. Khasi [code: 'kha', BCP-47: 'kha-IN', Meghalaya]
-5. Mizo (Mizo ṭawng) [code: 'lus', BCP-47: 'lus-IN', Mizoram]
-6. Ao (Ao Naga) [code: 'ao', BCP-47: 'njo-IN', Nagaland]
-7. Nepali (नेपाली) [code: 'ne', BCP-47: 'ne-NP', Sikkim]
-8. Kokborok (ককবরক) [code: 'kok', BCP-47: 'trp-IN', Tripura]
-9. English [code: 'en', BCP-47: 'en-US', General]
-`;
+const LANGUAGES_CONFIG: Record<string, { name: string; nativeName: string; script: string; greeting: string; helpPrompt: string }> = {
+  as: {
+    name: 'Assamese',
+    nativeName: 'অসমীয়া',
+    script: 'Assamese script (অসমীয়া লিপি)',
+    greeting: 'নমস্কাৰ! মই আপোনাৰ ৰিকলিয়া ভয়েচ সহায়ক। আপুনি আজি কি খেল খেলিব বিচাৰে—ছৱি মনত ৰখা, ক্ৰম স্মৃতি, শব্দ সম্পৰ্ক, নে সাধু পঢ়া?',
+    helpPrompt: 'মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ। আহক আমি কাৰ্যকলাপ আৰম্ভ কৰোঁ।',
+  },
+  ne: {
+    name: 'Nepali',
+    nativeName: 'नेपाली',
+    script: 'Devanagari script (देवनागरी लिपि)',
+    greeting: 'नमस्ते! म तपाईंको रिकलिया भ्वाइस सहायक हुँ। आज तपाईं कुन अभ्यास गर्न चाहनुहुन्छ?',
+    helpPrompt: 'म तपाईंलाई मद्दत गर्न तयार छु। आउनुहोस् गतिविधि सुरु गरौं।',
+  },
+  mni: {
+    name: 'Meitei / Manipuri',
+    nativeName: 'ꯃꯤꯇꯩ ꯂꯣꯟ',
+    script: 'Meetei Mayek script (ꯃꯤꯇꯩ ꯃꯌꯦꯛ)',
+    greeting: 'ꯈꯨꯔꯨꯝꯖꯔꯤ! ꯑꯩꯍꯥꯛ ꯔꯤꯀꯣꯂꯤꯌꯥ ꯚꯣꯏꯁ ꯑꯦꯁꯤꯁꯇꯦꯟꯇꯅꯤ꯫ ꯅꯈꯣꯏꯅꯥ ꯑꯍꯨꯝꯊꯣꯛꯄꯥ ꯊꯕꯛ ꯇꯧꯕꯥ ꯄꯥꯝꯕ꯭ꯔꯥ?',
+    helpPrompt: 'ꯑꯩꯍꯥꯛ ꯅꯈꯣꯏꯕꯨ ꯃꯇꯦꯡ ꯄꯥꯡꯂꯒꯦ꯫ ꯑꯩꯈꯣꯏ ꯉꯁꯤꯒꯤ ꯊꯕꯛ ꯍꯧꯔꯁꯤ꯫',
+  },
+  kha: {
+    name: 'Khasi',
+    nativeName: 'Khasi',
+    script: 'Khasi orthography',
+    greeting: 'Khublei! Nga dei ka Voice Assistant jong ka Recallia. Kiei kiba phi kwah ban leh mynta ka sngi?',
+    helpPrompt: 'Nga la kloi ban iarap ia phi. To ngin sdang ia ki kam kiba mynta ka sngi.',
+  },
+  lus: {
+    name: 'Mizo',
+    nativeName: 'Mizo ṭawng',
+    script: 'Mizo orthography',
+    greeting: 'Chibai! Recallia Voice Assistant ka ni e. Vawiin ah eng game nge kan khelh ang?',
+    helpPrompt: 'Puih che ka inpeih reng e. Vawiin thluak sawizawina i ṭan ang u.',
+  },
+  kok: {
+    name: 'Kokborok',
+    nativeName: 'ককবরক',
+    script: 'Kokborok script',
+    greeting: 'Khulumkha! Ang Recallia Voice Assistant. Tini nung bahno activity khlai no manai?',
+    helpPrompt: 'Ang nungno chubano manai. Kahmkhe tongdi, chini activity chengno.',
+  },
+  nyi: {
+    name: 'Nyishi',
+    nativeName: 'Nyishi',
+    script: 'Nyishi orthography',
+    greeting: 'Aying! Ngo Recallia Voice Assistant. Ngo no haam nyir gam kumtolo?',
+    helpPrompt: 'Ngo no haam nyir gam kumtolo. Tani nyir gam kumtolo.',
+  },
+  ao: {
+    name: 'Ao Naga',
+    nativeName: 'Ao',
+    script: 'Ao orthography',
+    greeting: 'Salam! Ni Recallia Voice Assistant. Tanü na kechi asaya asayatsü memelunger?',
+    helpPrompt: 'Ni ne den yariteptsü renema lir. Asaya asayatsü aitsüdi.',
+  },
+  en: {
+    name: 'English',
+    nativeName: 'English',
+    script: 'English',
+    greeting: 'Hello! I am your Recallia Voice Assistant. How can I guide you today? You can ask me to start any cognitive activity, explain game rules, or open your caregiver progress report.',
+    helpPrompt: "I'm ready to help you with that. Let's proceed with your activity.",
+  },
+};
 
 // Multilingual Conversational Voice Assistant
 app.post('/api/assistant/chat', async (req, res) => {
@@ -168,73 +221,33 @@ app.post('/api/assistant/chat', async (req, res) => {
     }
 
     const ai = getGenAI();
+    const targetLang = LANGUAGES_CONFIG[selectedLanguage] || LANGUAGES_CONFIG['en'];
 
-    // Fallback response generator if Gemini key is missing or call fails
-    const createFallbackResponse = (userText: string, currentLang: string) => {
+    // Fallback response generator in strictly the chosen language
+    const createFallbackResponse = (userText: string, langCode: string) => {
       const lower = userText.toLowerCase();
-      let detectedLang = currentLang;
-      let reply = '';
       let suggestedAction: string | null = null;
 
       if (lower.includes('my memories') || lower.includes('personal memory') || lower.includes('personal memories') || lower.includes('স্মৃতি') || lower.includes('यादहरू')) {
         suggestedAction = 'play_my_memories';
-      } else if (lower.includes('picture') || lower.includes('photo') || lower.includes('ছৱি') || lower.includes('तस्बिर')) {
+      } else if (lower.includes('picture') || lower.includes('photo') || lower.includes('ছৱি') || lower.includes('तस्बिर') || lower.includes('dur')) {
         suggestedAction = 'play_picture_recall';
       } else if (lower.includes('sequence') || lower.includes('order') || lower.includes('ক্ৰম') || lower.includes('क्रम')) {
         suggestedAction = 'play_sequence_memory';
-      } else if (lower.includes('object') || lower.includes('word') || lower.includes('বস্তু') || lower.includes('शब्द')) {
+      } else if (lower.includes('object') || lower.includes('word') || lower.includes('বস্তু') || lower.includes('शब्द') || lower.includes('tiar')) {
         suggestedAction = 'play_object_association';
-      } else if (lower.includes('story') || lower.includes('সাধু') || lower.includes('कथा') || lower.includes('thawnthu')) {
+      } else if (lower.includes('story') || lower.includes('সাধু') || lower.includes('कथा') || lower.includes('thawnthu') || lower.includes('puriskam')) {
         suggestedAction = 'play_story_recall';
-      } else if (lower.includes('caregiver') || lower.includes('report') || lower.includes('অভিভাৱক') || lower.includes('हेरचाह')) {
+      } else if (lower.includes('caregiver') || lower.includes('report') || lower.includes('অভিভাৱক') || lower.includes('हेरचाह') || lower.includes('enkawltu')) {
         suggestedAction = 'open_caregiver';
-      } else if (lower.includes('nepali') || lower.includes('नेपाली')) {
-        suggestedAction = 'change_lang_ne';
-        detectedLang = 'ne';
-      } else if (lower.includes('assamese') || lower.includes('অসমীয়া')) {
-        suggestedAction = 'change_lang_as';
-        detectedLang = 'as';
       }
 
-      // Greetings and general guidance in current language
-      switch (detectedLang) {
-        case 'as':
-          reply = suggestedAction
-            ? 'মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ। আহক আমি কাৰ্যকলাপ আৰম্ভ কৰোঁ।'
-            : 'নমস্কাৰ! মই আপোনাৰ ৰিকলিয়া ভয়েচ সহায়ক। আপুনি আজি কি খেল খেলিব বিচাৰে—ছৱি মনত ৰখা, ক্ৰম স্মৃতি, শব্দ সম্পৰ্ক, নে সাধু পঢ়া?';
-          break;
-        case 'ne':
-          reply = suggestedAction
-            ? 'म तपाईंलाई मद्दत गर्न तयार छु। आउनुहोस् गतिविधि सुरु गरौं।'
-            : 'नमस्ते! म तपाईंको रिकलिया भ्वाइस सहायक हुँ। आज तपाईं कुन अभ्यास गर्न चाहनुहुन्छ?';
-          break;
-        case 'mni':
-          reply = 'ꯈꯨꯔꯨꯝꯖꯔꯤ! ꯑꯩꯍꯥꯛ ꯔꯤꯀꯣꯂꯤꯌꯥ ꯚꯣꯏꯁ ꯑꯦꯁꯤꯁꯇꯦꯟꯇꯅꯤ꯫ ꯅꯈꯣꯏꯅꯥ ꯑꯍꯨꯝꯊꯣꯛꯄꯥ ꯊꯕꯛ ꯇꯧꯕꯥ ꯄꯥꯝꯕ꯭ꯔꯥ?';
-          break;
-        case 'lus':
-          reply = 'Chibai! Recallia Voice Assistant ka ni e. Vawiin ah eng game nge kan khelh ang?';
-          break;
-        case 'kha':
-          reply = 'Khublei! Nga dei ka Voice Assistant jong ka Recallia. Kiei kiba phi kwah ban leh mynta ka sngi?';
-          break;
-        case 'kok':
-          reply = 'Khulumkha! Ang Recallia Voice Assistant. Tini nung bahno activity khlai no manai?';
-          break;
-        case 'nyi':
-          reply = 'Aying! Ngo Recallia Voice Assistant. Ngo no haam nyir gam kumtolo?';
-          break;
-        case 'ao':
-          reply = 'Salam! Ni Recallia Voice Assistant. Tanü na kechi asaya asayatsü memelunger?';
-          break;
-        default:
-          reply = suggestedAction
-            ? "I'm ready to help you with that. Let's proceed with your activity."
-            : "Hello! I am your Recallia Voice Assistant. How can I guide you today? You can ask me to start any cognitive activity, explain game rules, or open your caregiver progress report.";
-      }
+      const cfg = LANGUAGES_CONFIG[langCode] || LANGUAGES_CONFIG['en'];
+      const reply = suggestedAction ? cfg.helpPrompt : cfg.greeting;
 
       return {
         reply,
-        detectedLanguage: detectedLang,
+        detectedLanguage: langCode,
         action: suggestedAction,
         spokenScript: reply,
       };
@@ -243,64 +256,42 @@ app.post('/api/assistant/chat', async (req, res) => {
     // Check user intent for quick actions
     const lowerMessage = message.toLowerCase();
     let detectedAction: string | null = null;
-    let detectedLang = selectedLanguage;
 
     if (lowerMessage.includes('my memories') || lowerMessage.includes('personal memory') || lowerMessage.includes('personal memories') || lowerMessage.includes('স্মৃতি') || lowerMessage.includes('यादहरू')) {
       detectedAction = 'play_my_memories';
-    } else if (lowerMessage.includes('picture') || lowerMessage.includes('photo') || lowerMessage.includes('ছৱি') || lowerMessage.includes('तस्बिर')) {
+    } else if (lowerMessage.includes('picture') || lowerMessage.includes('photo') || lowerMessage.includes('ছৱি') || lowerMessage.includes('तस्बिर') || lowerMessage.includes('dur')) {
       detectedAction = 'play_picture_recall';
     } else if (lowerMessage.includes('sequence') || lowerMessage.includes('order') || lowerMessage.includes('ক্ৰম') || lowerMessage.includes('क्रम')) {
       detectedAction = 'play_sequence_memory';
-    } else if (lowerMessage.includes('object') || lowerMessage.includes('word') || lowerMessage.includes('বস্তু') || lowerMessage.includes('शब्द')) {
+    } else if (lowerMessage.includes('object') || lowerMessage.includes('word') || lowerMessage.includes('বস্তু') || lowerMessage.includes('शब्द') || lowerMessage.includes('tiar')) {
       detectedAction = 'play_object_association';
-    } else if (lowerMessage.includes('story') || lowerMessage.includes('সাধু') || lowerMessage.includes('कथा') || lowerMessage.includes('thawnthu')) {
+    } else if (lowerMessage.includes('story') || lowerMessage.includes('সাধু') || lowerMessage.includes('कथा') || lowerMessage.includes('thawnthu') || lowerMessage.includes('puriskam')) {
       detectedAction = 'play_story_recall';
-    } else if (lowerMessage.includes('caregiver') || lowerMessage.includes('report') || lowerMessage.includes('অভিভাৱক') || lowerMessage.includes('हेरचाह')) {
+    } else if (lowerMessage.includes('caregiver') || lowerMessage.includes('report') || lowerMessage.includes('অভিভাৱক') || lowerMessage.includes('हेरचाह') || lowerMessage.includes('enkawltu')) {
       detectedAction = 'open_caregiver';
-    } else if (lowerMessage.includes('nepali') || lowerMessage.includes('नेपाली')) {
-      detectedAction = 'change_lang_ne';
-      detectedLang = 'ne';
-    } else if (lowerMessage.includes('assamese') || lowerMessage.includes('অসমীয়া')) {
-      detectedAction = 'change_lang_as';
-      detectedLang = 'as';
     }
 
     if (!ai) {
       const fallback = createFallbackResponse(message, selectedLanguage);
-      sendEvent({ text: fallback.reply, action: fallback.action, detectedLanguage: fallback.detectedLanguage, done: true });
+      sendEvent({ text: fallback.reply, action: fallback.action, detectedLanguage: selectedLanguage, done: true });
       res.end();
       return;
     }
 
     const systemInstruction = `
-You are Recallia AI, an advanced, deeply compassionate, highly capable conversational AI companion powered by Google Gemini. You are integrated into Recallia, a cognitive wellness web platform designed for elderly users and their families in North-Eastern India and beyond.
+You are Recallia AI, a deeply compassionate, respectful, elder-friendly conversational AI companion powered by Google Gemini. You are integrated into Recallia, a cognitive wellness web platform designed for elderly users and their families in North-Eastern India.
 
-${NE_LANGUAGES_INFO}
+🚨 ABSOLUTE MANDATORY DIRECTIVE — STRICT LANGUAGE ENFORCEMENT:
+The user has CHOSEN the language: "${targetLang.name} (${targetLang.nativeName})", language code: "${selectedLanguage}".
+1. You MUST formulate your ENTIRE response STRICTLY AND ONLY in "${targetLang.name} (${targetLang.nativeName})" using authentic ${targetLang.script}.
+2. DO NOT write your response in English, Hindi, or any other language, unless the chosen language IS English.
+3. Even if the user types or speaks to you in English or another language, or asks questions about words in another language, you MUST respond 100% in "${targetLang.name} (${targetLang.nativeName})".
+4. Never switch languages mid-sentence or provide dual-language translations.
+5. If the user asks general questions (weather, family, gardening, traditional stories, cooking, peaceful memories, cognitive health), answer completely in "${targetLang.name} (${targetLang.nativeName})".
 
-YOUR CAPABILITIES AS A GEN-AI COMPANION (Like ChatGPT / Gemini):
-1. GENERAL KNOWLEDGE & CONVERSATION:
-   - You can answer ANY question the user asks: science, daily life, history, cooking, gentle exercise, healthy habits, brain wellness, weather, nature, plants, traditional folklore, and pleasant friendly conversation.
-   - You are a warm, polite, and patient companion who speaks with elder-friendly respect and positivity.
-
-2. NORTH-EASTERN INDIA CULTURAL & LINGUISTIC EXPERTISE:
-   - You understand and can naturally converse in 8 North-Eastern Indian languages (Assamese, Nyishi, Meitei/Manipuri, Khasi, Mizo, Ao, Nepali, Kokborok) as well as English.
-   - You know soothing folk tales, festivals (Bihu, Losar, Chapchar Kut, Wangala, Hornbill, Nongkrem, etc.), tea gardens, hills, traditional crafts, and peaceful regional stories.
-   - Always detect the language of the user's message and respond in that EXACT same language with correct native script or orthography. If not specified, use the user's active language (${selectedLanguage}).
-
-3. COGNITIVE WELLNESS & RECALLIA GUIDE:
-   - If asked about memory, brain wellness, daily tips, or the app:
-     * Picture Recall (visual memory of everyday items like tea kettle, bell, lantern, spectacles)
-     * Sequence Memory (glowing colored tile patterns)
-     * Object Association (verbal & conceptual pairing)
-     * Story Recall (peaceful short stories and questions)
-     * My Memories (gentle personal memories recall with familiar family names, places, and objects)
-     * Caregiver Portal (non-diagnostic wellness trends and reports)
-   - You provide gentle encouragement. You never make intimidating clinical claims or medical diagnoses.
-
-FORMATTING & STYLE:
-- Respond DIRECTLY in conversational natural text (do NOT wrap in JSON, do NOT use code fences).
-- Format answers clearly with short, easy-to-read sentences or clean bullet points so elderly readers can digest them easily.
-- Keep tone warm, encouraging, soothing, and clear.
+CARE & TONE:
+- Speak with warm, reassuring, gentle respect suitable for beloved grandparents and elders.
+- Keep sentences clear, peaceful, and concise. Avoid dense medical jargon or scary diagnostic claims.
 `;
 
     // Construct conversation history
@@ -308,12 +299,10 @@ FORMATTING & STYLE:
       .map((item: { role: string; content: string }) => `${item.role === 'user' ? 'User' : 'Assistant'}: ${item.content}`)
       .join('\n');
 
-    const prompt = conversationHistory
-      ? `Recent Conversation:\n${conversationHistory}\n\nUser: ${message}`
-      : message;
+    const prompt = `${conversationHistory ? `Recent Conversation History:\n${conversationHistory}\n\n` : ''}User Message: ${message}\n\n[STRICT LANGUAGE DIRECTIVE: Respond completely and exclusively in ${targetLang.name} (${targetLang.nativeName}). Do not write in any other language.]`;
 
     // Stream with fast Gemini Flash models
-    const modelsToTry = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
     let streamedSuccessfully = false;
 
     for (const modelName of modelsToTry) {
@@ -323,7 +312,7 @@ FORMATTING & STYLE:
           contents: prompt,
           config: {
             systemInstruction,
-            temperature: 0.4,
+            temperature: 0.3,
           },
         });
 
@@ -352,7 +341,7 @@ FORMATTING & STYLE:
             contents: prompt,
             config: {
               systemInstruction,
-              temperature: 0.4,
+              temperature: 0.3,
             },
           });
           const genTimeout = new Promise<never>((_, reject) =>
@@ -378,24 +367,20 @@ FORMATTING & STYLE:
       }
     }
 
-    // Send final completion event with action and language metadata
+    // Send final completion event with action and language metadata strictly matching chosen language
     sendEvent({
       done: true,
       action: detectedAction,
-      detectedLanguage: detectedLang,
+      detectedLanguage: selectedLanguage,
     });
     res.end();
   } catch (error: unknown) {
     console.error('Error in /api/assistant/chat (gracefully recovering with fallback):', error);
     const { selectedLanguage = 'en' } = req.body || {};
-    const fallbackText = selectedLanguage === 'as'
-      ? 'নমস্কাৰ! মই আপোনাৰ ৰিকলিয়া ভয়েচ সহায়ক। মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ।'
-      : selectedLanguage === 'ne'
-      ? 'नमस्ते! म तपाईंको रिकलिया भ्वाइस सहायक हुँ। म तपाईंलाई मद्दत गर्न तयार छु।'
-      : "Hello! I am your Recallia Voice Companion. I am here to guide and practice gentle memory activities with you.";
+    const cfg = LANGUAGES_CONFIG[selectedLanguage] || LANGUAGES_CONFIG['en'];
 
     sendEvent({
-      text: fallbackText,
+      text: cfg.greeting,
       done: true,
       action: null,
       detectedLanguage: selectedLanguage,

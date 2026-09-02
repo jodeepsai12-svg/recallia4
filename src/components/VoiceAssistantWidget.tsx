@@ -47,9 +47,10 @@ export function VoiceAssistantWidget() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const detectedMeta =
-    LANGUAGES.find((l) => l.code === detectedLanguage) ||
+  // Strictly use user's chosen language metadata
+  const activeLangMeta =
     LANGUAGES.find((l) => l.code === language) ||
+    LANGUAGES.find((l) => l.code === detectedLanguage) ||
     LANGUAGES[0];
 
   useEffect(() => {
@@ -78,28 +79,64 @@ export function VoiceAssistantWidget() {
     }
   };
 
-  // Language specific prompt suggestions like Gemini/ChatGPT
+  // Language specific prompt suggestions strictly in the chosen language
   const getPromptSuggestions = () => {
     switch (language) {
       case 'as':
         return [
-          { text: 'মোক অসমৰ এখন শান্ত সাধু শুনাওক', icon: BookOpen, label: 'শান্ত সাধু কথা' },
+          { text: 'মোক অসমৰ এখন শান্ত লোককথা শুনাওক', icon: BookOpen, label: 'শান্ত লোককথা' },
           { text: 'ছৱি মনত ৰখা খেল আৰম্ভ কৰক', icon: PlayCircle, label: 'ছৱি মনত ৰখা খেল' },
-          { text: 'মগজু সজীৱ ৰখাৰ বাবে কিছু পৰামৰ্শ দিয়ক', icon: Sparkles, label: 'জ্ঞান পৰামৰ্শ' },
-          { text: 'মোৰ সাপ্তাহিক অগ্ৰগতি দেখুৱাওক', icon: BarChart2, label: 'প্ৰতিবেদন' },
+          { text: 'মগজু সজীৱ ৰখাৰ বাবে তিনিটা পৰামৰ্শ দিয়ক', icon: Sparkles, label: 'জ্ঞান পৰামৰ্শ' },
+          { text: 'মোৰ সাপ্তাহিক অগ্ৰগতিৰ প্ৰতিবেদন দেখুৱাওক', icon: BarChart2, label: 'প্ৰতিবেদন' },
         ];
       case 'ne':
         return [
           { text: 'मलाई एउटा शान्त परम्परागत कथा सुनाउनुहोस्', icon: BookOpen, label: 'शान्त कथा' },
           { text: 'तस्बिर स्मरण अभ्यास सुरु गर्नुहोस्', icon: PlayCircle, label: 'तस्बिर अभ्यास' },
-          { text: 'मानसिक स्वास्थ्यका लागि ३ वटा सुझाव दिनुहोस्', icon: Sparkles, label: 'सुझावहरू' },
-          { text: 'मेरो प्रगति रिपोर्ट देखाउनुहोस्', icon: BarChart2, label: 'रिपोर्ट' },
+          { text: 'मानसिक स्वास्थ्यका लागि ३ वटा उपयोगी सुझाव दिनुहोस्', icon: Sparkles, label: 'सुझावहरू' },
+          { text: 'मेरो प्रगति रिपोर्ट देखाउनुहोस्', icon: BarChart2, label: 'प्रगति रिपोर्ट' },
         ];
       case 'mni':
         return [
+          { text: 'ꯑꯩꯈꯣꯏ ꯁꯥꯟꯇꯤ ꯑꯣꯏꯕꯥ ꯋꯥꯔꯤ ꯑꯃꯥ ꯇꯥꯁꯤ', icon: BookOpen, label: 'ꯁꯥꯟꯇꯤ ꯋꯥꯔꯤ' },
           { text: 'ꯃꯤꯇꯩ ꯐꯣꯇꯣ ꯅꯤꯡꯁꯤꯡꯕꯥ ꯃꯁꯥꯟꯅꯥ ꯍꯧꯕꯤꯌꯨ', icon: PlayCircle, label: 'ꯐꯣꯇꯣ ꯃꯁꯥꯟꯅꯥ' },
           { text: 'ꯅꯤꯡꯁꯤꯡ ꯂꯧꯁꯤꯡ ꯐꯒꯠꯍꯟꯅꯕꯥ ꯄꯥꯎꯇꯥꯛ ꯄꯤꯕꯤꯌꯨ', icon: Sparkles, label: 'ꯄꯥꯎꯇꯥꯛ' },
           { text: 'ꯑꯩꯒꯤ ꯄ꯭ꯔꯣꯒ꯭ꯔꯦꯁ ꯌꯦꯡꯕꯤꯌꯨ', icon: BarChart2, label: 'ꯄ꯭ꯔꯣꯒ꯭ꯔꯦꯁ' },
+        ];
+      case 'kha':
+        return [
+          { text: 'Iathuh ha nga ia kawei ka puriskam kaba sngewtynnat', icon: BookOpen, label: 'Puriskam' },
+          { text: 'Sdang ia ka jingleh dur kynmaw', icon: PlayCircle, label: 'Dur Kynmaw' },
+          { text: 'Ai 3 tylli ki jingbthah na ka bynta ka jingmut jingpyrkhat', icon: Sparkles, label: 'Jingbthah' },
+          { text: 'Pyni ia ka report jong nga', icon: BarChart2, label: 'Report' },
+        ];
+      case 'lus':
+        return [
+          { text: 'Mizo thawnthu ngaihnawm tak min hrilh teh', icon: BookOpen, label: 'Mizo Thawnthu' },
+          { text: 'Thlalak hriatpuina game i ṭan ang u', icon: PlayCircle, label: 'Thlalak Game' },
+          { text: 'Thluak hriselna atan thurawn 3 min pe teh', icon: Sparkles, label: 'Thurawn' },
+          { text: 'Ka hmasawnna report min en tir rawh', icon: BarChart2, label: 'Progress Report' },
+        ];
+      case 'kok':
+        return [
+          { text: 'Angno kaisa kaham kokthum saikhlai', icon: BookOpen, label: 'Kaham Kokthum' },
+          { text: 'Nokhar photo kiphil activity chengdi', icon: PlayCircle, label: 'Photo Activity' },
+          { text: 'Kwplai tongo bagwi chubani kok saidi', icon: Sparkles, label: 'Chubani Kok' },
+          { text: 'Ani progress report nukhudi', icon: BarChart2, label: 'Progress Report' },
+        ];
+      case 'nyi':
+        return [
+          { text: 'Ngo no haam nyir gam kumtolo', icon: BookOpen, label: 'Kumtolo' },
+          { text: 'Photo recall nyir gam aitsüdi', icon: PlayCircle, label: 'Photo Activity' },
+          { text: 'Haam nyir gam chuba paalo', icon: Sparkles, label: 'Chuba' },
+          { text: 'Report nukhudi', icon: BarChart2, label: 'Report' },
+        ];
+      case 'ao':
+        return [
+          { text: 'Ni den asaya ka asayatsü aitsüdi', icon: BookOpen, label: 'Oshi Otsü' },
+          { text: 'Noksa kilem asaya tenzükdi', icon: PlayCircle, label: 'Noksa Asaya' },
+          { text: 'Shisatsü tajung ka ashiang', icon: Sparkles, label: 'Shisatsü' },
+          { text: 'Ni asoshi report sayuang', icon: BarChart2, label: 'Report' },
         ];
       default:
         return [
@@ -113,6 +150,56 @@ export function VoiceAssistantWidget() {
     }
   };
 
+  const emptyStateTitles: Record<SupportedLanguageCode, { title: string; subtitle: string; placeholder: string }> = {
+    as: {
+      title: 'মোক কিবা সোধক বা পৰামৰ্শ বাছক',
+      subtitle: 'আপোনাৰ নিৰ্বাচিত অসমীয়া ভাষাত মই সাধু কʼব পাৰোঁ, খেল বুজাব পাৰোঁ আৰু আপোনাক সহায় কৰিব পাৰোঁ।',
+      placeholder: 'অসমীয়াত যিকোনো প্ৰশ্ন সোধক...',
+    },
+    ne: {
+      title: 'मलाई केही सोध्नुहोस् वा सुझाव रोज्नुहोस्',
+      subtitle: 'तपाईंको रोजिएको नेपाली भाषामा म कथा सुनाउन, खेल बुझाउन र मद्दत गर्न सक्छु।',
+      placeholder: 'नेपालीमा जे पनि सोध्नुहोस्...',
+    },
+    mni: {
+      title: 'ꯑꯩꯉꯣꯟꯗꯥ ꯍꯪꯕꯤꯌꯨ',
+      subtitle: 'ꯅꯍꯥꯛꯅꯥ ꯈꯅꯕꯤꯔꯕꯥ ꯃꯤꯇꯩ ꯂꯣꯟꯗꯥ ꯋꯥꯔꯤ ꯇꯥꯕꯤꯌꯨ ꯑꯃꯁꯨꯡ ꯃꯁꯥꯟꯅꯥ ꯍꯧꯕꯤꯌꯨ꯫',
+      placeholder: 'ꯃꯤꯇꯩ ꯂꯣꯟꯗꯥ ꯍꯪꯕꯤꯌꯨ...',
+    },
+    kha: {
+      title: 'Kylli ia nga ne jied ia ki jingbthah',
+      subtitle: 'Ha ka ktien Khasi kaba phi la jied, nga lah ban iathuhkhana bad iarap ia phi.',
+      placeholder: 'Kylli ha ka ktien Khasi...',
+    },
+    lus: {
+      title: 'Min zawt rawh le',
+      subtitle: 'Mizo ṭawnga thawnthu sawi leh game hrilhfiah hi ka inpeih reng e.',
+      placeholder: 'Mizo ṭawngin min zawt rawh...',
+    },
+    kok: {
+      title: 'Angno kaisa sungdi',
+      subtitle: 'Kokborok kokbai kokthum saikhlai no manai.',
+      placeholder: 'Kokborok bai sungdi...',
+    },
+    nyi: {
+      title: 'Ngo no haam nyir gam kumtolo',
+      subtitle: 'Nyishi agom nyir gam chuba paalo.',
+      placeholder: 'Nyishi agom haam...',
+    },
+    ao: {
+      title: 'Ni den asüngdangang',
+      subtitle: 'Ao oshi nung otsü aser asaya kilemtsü lir.',
+      placeholder: 'Ao oshi nung asüngdangang...',
+    },
+    en: {
+      title: 'Ask me anything or tap a prompt',
+      subtitle: 'Powered by Gemini AI. I can tell soothing stories, answer questions, or guide cognitive wellness in your chosen language.',
+      placeholder: 'Ask Gemini anything in English...',
+    },
+  };
+
+  const emptyState = emptyStateTitles[language] || emptyStateTitles.en;
+
   return (
     <>
       {/* Floating Trigger Button */}
@@ -124,7 +211,7 @@ export function VoiceAssistantWidget() {
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isSpeaking ? 'bg-amber-400 opacity-75' : 'bg-teal-400 opacity-75'}`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isSpeaking ? 'bg-amber-500' : 'bg-teal-600'}`}></span>
             </span>
-            <span>{isSpeaking ? 'Speaking...' : `AI Assistant: ${detectedMeta.nativeName}`}</span>
+            <span>{isSpeaking ? 'Speaking...' : `AI Assistant: ${activeLangMeta.nativeName}`}</span>
           </div>
 
           <button
@@ -207,7 +294,7 @@ export function VoiceAssistantWidget() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 sm:px-6 py-2 text-xs text-slate-600">
               <div className="flex items-center gap-2">
                 <Languages className="h-3.5 w-3.5 text-teal-600" />
-                <span>Active Language: <strong>{detectedMeta.nativeName}</strong></span>
+                <span>Active Language: <strong>{activeLangMeta.name} ({activeLangMeta.nativeName})</strong></span>
               </div>
               <div className="flex items-center gap-3">
                 {isSpeaking && (
@@ -240,10 +327,10 @@ export function VoiceAssistantWidget() {
                     <Bot className="h-8 w-8" />
                   </div>
                   <h4 className="text-lg font-bold text-slate-900 mb-1">
-                    Ask me anything or tap a prompt
+                    {emptyState.title}
                   </h4>
                   <p className="text-xs sm:text-sm text-slate-600 max-w-md mb-6 leading-relaxed">
-                    Powered by Google Gemini Gen AI. I can tell soothing stories, answer questions, explain cognitive games, or practice daily memory with you in your native language.
+                    {emptyState.subtitle}
                   </p>
 
                   {/* Suggested quick chips */}
@@ -349,7 +436,7 @@ export function VoiceAssistantWidget() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                       </span>
-                      Listening in {detectedMeta.name}...
+                      Listening in {activeLangMeta.name} ({activeLangMeta.nativeName})...
                     </div>
                     <p className="italic text-slate-700">{transcript || 'Listening to your voice...'}</p>
                   </div>
@@ -427,7 +514,7 @@ export function VoiceAssistantWidget() {
                     type="text"
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
-                    placeholder={`Ask Gemini anything in ${detectedMeta.name} or English...`}
+                    placeholder={emptyState.placeholder}
                     disabled={isProcessingAI || isListening}
                     className="h-12 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 disabled:opacity-50"
                   />
@@ -450,12 +537,19 @@ export function VoiceAssistantWidget() {
                   onChange={(e) => {
                     const newLang = e.target.value as SupportedLanguageCode;
                     setLanguage(newLang);
+                    const announceMap: Record<SupportedLanguageCode, string> = {
+                      as: 'আপুনি অসমীয়া ভাষা বাছনি কৰিছে।',
+                      ne: 'तपाईंले नेपाली भाषा रोज्नुभएको छ।',
+                      mni: 'ꯅꯍꯥꯛꯅꯥ ꯃꯤꯇꯩ ꯂꯣꯟ ꯈꯟꯈ꯭ꯔꯦ꯫',
+                      kha: 'Phi la jied ia ka ktien Khasi.',
+                      lus: 'Mizo ṭawng i thlang e.',
+                      kok: 'Nung Kokborok kok thlangkha.',
+                      nyi: 'No Nyishi agom thlangpa.',
+                      ao: 'Na Ao oshi shimogo.',
+                      en: 'You have selected English.',
+                    };
                     speak(
-                      newLang === 'as'
-                        ? 'আপুনি অসমীয়া ভাষা বাছনি কৰিছে।'
-                        : newLang === 'ne'
-                        ? 'तपाईंले नेपाली भाषा रोज्नुभएको छ।'
-                        : `Language changed to ${LANGUAGES.find((l) => l.code === newLang)?.name}`,
+                      announceMap[newLang] || `Language changed to ${LANGUAGES.find((l) => l.code === newLang)?.name}`,
                       newLang
                     );
                   }}

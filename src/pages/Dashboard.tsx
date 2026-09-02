@@ -15,10 +15,18 @@ import {
   ShieldCheck,
   Copy,
   CheckCircle2,
+  Heart,
+  Sun,
+  Droplets,
+  Coffee,
+  Wind,
+  Volume2,
+  Award,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { EmergencyButton } from '@/components/EmergencyButton';
 import { EmergencyModal } from '@/components/EmergencyModal';
+import { PeacefulBreathingModal } from '@/components/PeacefulBreathingModal';
 import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { useVoice } from '@/context/VoiceContext';
@@ -94,6 +102,7 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
   const [markingDone, setMarkingDone] = useState(false);
   const [gameSessions, setGameSessions] = useState<GameSession[]>([]);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [linkingCode, setLinkingCode] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState(false);
   const announcedGreetingRef = useRef(false);
@@ -225,6 +234,14 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
     await signOut();
   };
 
+  const formatSessionTime = (isoString: string) => {
+    try {
+      return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch {
+      return 'Earlier today';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-sand-50">
@@ -300,18 +317,51 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
       <VoiceGuideControlBar currentScreenInstruction={screenInstruction} />
 
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10 space-y-8 sm:space-y-10">
-        {/* Warm Elderly-Friendly Greeting Card */}
+        {/* Warm Elderly-Friendly Greeting Card & Today's Comfort Corner */}
         <div className="rounded-3xl border border-teal-100 bg-gradient-to-br from-teal-50/90 via-white to-sand-100 p-6 sm:p-8 shadow-soft">
-          <p className="text-sm sm:text-base font-bold text-teal-700 flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-teal-600" />
-            <span>{todayStr}</span>
-          </p>
-          <h1 className="mt-2 font-display text-2xl sm:text-4xl font-bold text-teal-950">
-            {greeting}, {firstName}!
-          </h1>
-          <p className="mt-2 text-base sm:text-lg text-teal-800 leading-relaxed max-w-2xl font-medium">
-            {t.dashboard?.greetingSubtitle || "Let's keep your mind active with simple, pleasant exercises today."}
-          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+            {/* Left side: Greeting & Personal Welcome */}
+            <div className="lg:col-span-2">
+              <p className="text-sm sm:text-base font-bold text-teal-700 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-teal-600" />
+                <span>{todayStr}</span>
+              </p>
+              <h1 className="mt-2 font-display text-2xl sm:text-4xl font-bold text-teal-950">
+                {greeting}, {firstName}!
+              </h1>
+              <p className="mt-2 text-base sm:text-lg text-teal-800 font-medium">
+                {t.dashboard?.greetingSubtitle || "Let's keep your mind active with simple, pleasant exercises today."}
+              </p>
+              <p className="mt-2 text-sm text-teal-700 font-medium">
+                Take each exercise at your own comfortable pace.
+              </p>
+            </div>
+
+            {/* Right side: Today's Comfort Corner */}
+            <div className="rounded-2xl border border-teal-200/80 bg-white/80 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-teal-900 font-bold text-sm">
+                <Sun className="h-4 w-4 text-amber-500 shrink-0" />
+                <span>Today&apos;s Comfort Corner</span>
+              </div>
+
+              <div className="space-y-2 text-xs text-teal-800">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-coral-500 shrink-0" />
+                  <p><strong className="text-teal-950">Mindful Thought:</strong> Relax and enjoy each step.</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-teal-600 shrink-0" />
+                  <p><strong className="text-teal-950">Hydration:</strong> Keep water or warm tea nearby.</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-teal-600 shrink-0" />
+                  <p><strong className="text-teal-950">Daily Goal:</strong> 1 to 2 gentle activities (5–10 mins).</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Today's Recommended Cognitive Activity Card (High Contrast, Senior-Centric) */}
@@ -330,34 +380,57 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
 
           {recommendedActivity && (
             <div className="relative overflow-hidden rounded-3xl border-2 border-teal-300 bg-white p-6 sm:p-8 shadow-soft-lg transition-all hover:border-teal-400">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-teal-100 text-teal-700 shadow-inner">
-                  <RecommendedIcon className="h-10 w-10" strokeWidth={2.5} />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                {/* Activity details */}
+                <div className="lg:col-span-2 flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-teal-100 text-teal-700 shadow-inner">
+                    <RecommendedIcon className="h-10 w-10" strokeWidth={2.5} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-display text-2xl sm:text-3xl font-bold text-teal-950 leading-tight">
+                      {recommendedActivity.title}
+                    </h3>
+
+                    <p className="mt-2 text-base text-teal-800 font-medium">
+                      {recommendedActivity.description || 'A gentle memory and focus exercise designed to keep your mind sharp.'}
+                    </p>
+
+                    {/* Clean, short metadata badges with clear words */}
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-teal-800 border border-teal-200">
+                        <Clock className="h-4 w-4 text-teal-600" />
+                        <span>{recommendedActivity.duration_minutes || 5} {t.dashboard?.minutes || 'Minutes'}</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-sand-100 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-sand-800 border border-sand-200">
+                        <span>🌱 {t.difficulty?.gentle || 'Gentle Pace'}</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-coral-50 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-coral-800 border border-coral-200">
+                        <span>🧠 {recommendedActivity.category || 'Memory'}</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display text-2xl sm:text-3xl font-bold text-teal-950 leading-tight">
-                    {recommendedActivity.title}
-                  </h3>
-
-                  <p className="mt-2 text-base sm:text-lg text-teal-800 leading-relaxed font-medium">
-                    {recommendedActivity.description || 'A gentle memory and focus exercise designed to keep your mind sharp and relaxed.'}
+                {/* Quick Guide */}
+                <div className="rounded-2xl border border-teal-100 bg-sand-50/70 p-4 sm:p-5 flex flex-col justify-center gap-2.5 text-xs text-teal-800">
+                  <p className="font-bold text-teal-950 text-sm flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-teal-600" />
+                    Quick Guide
                   </p>
-
-                  {/* Clean, short metadata badges with clear words */}
-                  <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-teal-800 border border-teal-200">
-                      <Clock className="h-4 w-4 text-teal-600" />
-                      <span>{recommendedActivity.duration_minutes || 5} {t.dashboard?.minutes || 'Minutes'}</span>
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-sand-100 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-sand-800 border border-sand-200">
-                      <span>🌱 {t.difficulty?.gentle || 'Gentle Pace'}</span>
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-coral-50 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-coral-800 border border-coral-200">
-                      <span>🧠 {recommendedActivity.category || 'Memory'}</span>
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">🌿</span>
+                    <p><strong>No Timers:</strong> Move at your own comfortable pace.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">🔊</span>
+                    <p><strong>Voice Audio:</strong> Reads questions aloud anytime.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">🌟</span>
+                    <p><strong>Gentle Hints:</strong> Always available if you pause.</p>
                   </div>
                 </div>
               </div>
@@ -394,8 +467,8 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
         </section>
 
         {/* Today's Daily Progress (Concise, Reassuring, Clear Sentences) */}
-        <section className="animate-fade-in-up">
-          <div className="mb-3 flex items-center gap-2">
+        <section className="animate-fade-in-up space-y-4">
+          <div className="flex items-center gap-2">
             <TrendingUp className="h-6 w-6 text-teal-700" />
             <h2 className="font-display text-xl sm:text-2xl font-bold text-teal-950">
               {t.dashboard?.yourProgress || 'Your Daily Progress'}
@@ -416,8 +489,8 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
               </p>
               <p className="mt-1 text-sm font-medium text-teal-800">
                 {completedTodayCount > 0
-                  ? 'Activities done today. Wonderful job!'
-                  : 'Start your first activity today.'}
+                  ? 'Completed today'
+                  : 'No activities yet today'}
               </p>
             </div>
 
@@ -435,8 +508,8 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
               </div>
               <p className="text-sm font-medium text-teal-800">
                 {progressPercent >= 100
-                  ? 'All daily exercises finished for today!'
-                  : 'Keep going at your own comfortable pace.'}
+                  ? 'Daily goal reached'
+                  : 'Toward your daily goal'}
               </p>
             </div>
 
@@ -452,13 +525,79 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                 {weeklyActiveDays} Days
               </p>
               <p className="mt-1 text-sm font-medium text-teal-800">
-                Active this week. Consistency keeps your mind sharp.
+                Active days this week
               </p>
             </div>
           </div>
+
+          {/* Daily Tip */}
+          <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-3.5 sm:px-4 flex items-center justify-between gap-3 text-xs sm:text-sm text-teal-800">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+              <span>
+                <strong className="text-teal-950">Daily Tip:</strong> Regular gentle practice supports mental clarity and focus.
+              </span>
+            </div>
+            <span className="hidden sm:inline-block font-semibold text-teal-700 shrink-0">Every session counts</span>
+          </div>
+
+          {/* Today's Activity Log */}
+          <div className="rounded-3xl border border-teal-100 bg-white p-6 shadow-soft">
+            <h3 className="font-display text-lg font-bold text-teal-950 mb-3 flex items-center gap-2">
+              <Award className="h-5 w-5 text-teal-700" />
+              <span>{t.dashboard?.todaysCompleted || "Today's Completed Activities"}</span>
+            </h3>
+
+            {todaysCompletedSessions.length > 0 ? (
+              <div className="space-y-2.5">
+                {todaysCompletedSessions.map((session, idx) => {
+                  const matchedGame = GAMES.find((g) => g.type === session.game_type) || GAMES[0];
+                  return (
+                    <div
+                      key={session.id || idx}
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-teal-100 bg-sand-50/50 p-3.5 sm:px-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 text-teal-700 shrink-0">
+                          <matchedGame.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-teal-950 text-sm sm:text-base">
+                            {matchedGame.title}
+                          </p>
+                          <p className="text-xs text-teal-700">
+                            Completed at {formatSessionTime(session.created_at)} &bull; {matchedGame.categoryLabel}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <span className="rounded-xl bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800">
+                          ⭐ {session.accuracy || 100}% Accuracy
+                        </span>
+                        <span className="rounded-xl bg-sand-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                          Gentle session
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-teal-200 bg-sand-50/60 p-5 text-center">
+                <Heart className="mx-auto h-7 w-7 text-coral-400 mb-1.5" />
+                <p className="font-bold text-teal-900 text-sm sm:text-base">
+                  {t.dashboard?.noCompletedTitle || 'No activities completed yet today'}
+                </p>
+                <p className="mt-1 text-xs sm:text-sm text-teal-700 max-w-md mx-auto font-medium">
+                  Select any exercise below to begin when you are ready.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
-        {/* Cognitive Games Grid — Senior Friendly with 1-Sentence Descriptions */}
+        {/* Cognitive Games Grid — Balanced 6-card symmetrical grid */}
         <section className="animate-fade-in-up">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -468,11 +607,12 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
               </h2>
             </div>
             <span className="text-xs sm:text-sm font-semibold text-teal-700">
-              Tap any game to play
+              Tap any card to begin
             </span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* The 5 Core Cognitive Games */}
             {GAMES.map((game, index) => {
               const gameSessionsForType = gameSessions.filter((s) => s.game_type === game.type);
               const hasHistory = gameSessionsForType.length > 0;
@@ -490,16 +630,21 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100 text-teal-700 group-hover:bg-teal-700 group-hover:text-white transition-colors">
                         <game.icon className="h-7 w-7" strokeWidth={2.5} />
                       </div>
-                      <span className="rounded-full bg-sand-100 px-3 py-1 text-xs font-bold text-teal-900">
-                        Game {index + 1}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-full bg-sand-100 px-3 py-1 text-xs font-bold text-teal-900">
+                          {game.categoryLabel}
+                        </span>
+                        <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 border border-teal-100">
+                          #{index + 1}
+                        </span>
+                      </div>
                     </div>
 
                     <h3 className="font-display text-xl font-bold text-teal-950 group-hover:text-teal-700 transition-colors">
                       {translatedTitle}
                     </h3>
 
-                    <p className="mt-2 text-base text-teal-800 leading-relaxed font-medium">
+                    <p className="mt-2 text-sm text-teal-800 leading-relaxed font-medium">
                       {translatedTagline}
                     </p>
                   </div>
@@ -507,8 +652,8 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                   <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-sm font-bold text-teal-700">
                     <span>
                       {hasHistory
-                        ? `${gameSessionsForType.length} ${gameSessionsForType.length === 1 ? 'Session completed' : 'Sessions completed'}`
-                        : 'Ready to play (5 mins)'}
+                        ? `${gameSessionsForType.length} completed`
+                        : '5 min session'}
                     </span>
                     <span className="inline-flex items-center gap-1 text-teal-800 group-hover:translate-x-1 transition-transform">
                       Play Now <ArrowRight className="h-4 w-4" />
@@ -517,6 +662,95 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                 </button>
               );
             })}
+
+            {/* 6th Card: Peaceful Breathing & Reminiscence */}
+            <button
+              onClick={() => setShowBreathingModal(true)}
+              className="group flex flex-col justify-between rounded-3xl border-2 border-teal-200/90 bg-gradient-to-br from-teal-50/50 via-white to-sand-50/60 p-6 text-left shadow-soft transition-all hover:border-teal-400 hover:shadow-soft-lg active:scale-[0.98]"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100 text-teal-700 group-hover:bg-teal-700 group-hover:text-white transition-colors">
+                    <Wind className="h-7 w-7" strokeWidth={2.5} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800">
+                      Daily Calm
+                    </span>
+                    <span className="rounded-full bg-sand-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                      2 mins
+                    </span>
+                  </div>
+                </div>
+
+                <h3 className="font-display text-xl font-bold text-teal-950 group-hover:text-teal-700 transition-colors">
+                  Peaceful Breathing
+                </h3>
+
+                <p className="mt-2 text-sm text-teal-800 leading-relaxed font-medium">
+                  A gentle 2-minute guided breathing and relaxation pause.
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-teal-100 flex items-center justify-between text-sm font-bold text-teal-700">
+                <span>Self-guided relaxation</span>
+                <span className="inline-flex items-center gap-1 text-teal-800 group-hover:translate-x-1 transition-transform">
+                  Take a Breath <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        {/* Daily Comfort & Wellness Guidance */}
+        <section className="animate-fade-in-up">
+          <div className="mb-3 flex items-center gap-2">
+            <Heart className="h-5 w-5 text-coral-500" />
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-teal-950">
+              Comfort Tips
+            </h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-soft">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-3">
+                <Sun className="h-5 w-5" />
+              </div>
+              <h4 className="font-bold text-teal-950 text-sm">Gentle Light</h4>
+              <p className="mt-1 text-xs text-teal-800 leading-relaxed">
+                Use soft, clear lighting to keep your eyes comfortable.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-soft">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 mb-3">
+                <Coffee className="h-5 w-5" />
+              </div>
+              <h4 className="font-bold text-teal-950 text-sm">Warm Beverage</h4>
+              <p className="mt-1 text-xs text-teal-800 leading-relaxed">
+                Keep water or tea nearby for easy hydration.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-soft">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sand-100 text-sand-700 mb-3">
+                <Volume2 className="h-5 w-5" />
+              </div>
+              <h4 className="font-bold text-teal-950 text-sm">Spoken Audio</h4>
+              <p className="mt-1 text-xs text-teal-800 leading-relaxed">
+                Tap Voice Guide to hear questions read out loud.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-white p-4 shadow-soft">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral-50 text-coral-600 mb-3">
+                <Users className="h-5 w-5" />
+              </div>
+              <h4 className="font-bold text-teal-950 text-sm">Family Connection</h4>
+              <p className="mt-1 text-xs text-teal-800 leading-relaxed">
+                Caregivers can view your milestones and progress.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -530,10 +764,10 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                 </div>
                 <div>
                   <h3 className="font-display text-lg sm:text-xl font-bold text-teal-950">
-                    Family & Caregiver Link
+                    Family &amp; Caregiver Link
                   </h3>
                   <p className="mt-0.5 text-sm text-teal-800 font-medium">
-                    Share this linking code with your trusted caregiver or family member to give them read-only insight.
+                    Share this code with your family or caregiver.
                   </p>
                 </div>
               </div>
@@ -555,6 +789,22 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
               )}
             </div>
 
+            {/* Concise status points */}
+            <div className="mt-4 pt-4 border-t border-teal-100/70 grid gap-3 sm:grid-cols-3 text-xs text-teal-800">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-teal-600 shrink-0" />
+                <p><strong>Private:</strong> Only game completion is shared.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-teal-600 shrink-0" />
+                <p><strong>Stay Connected:</strong> Family can see your activity.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-teal-600 shrink-0" />
+                <p><strong>Simple Setup:</strong> Give them this code to connect.</p>
+              </div>
+            </div>
+
             {userProfile?.caregiver?.phoneNumber && (
               <div className="mt-4 pt-3 border-t border-teal-100/70 flex items-center justify-between text-xs text-teal-700 font-medium">
                 <span>
@@ -566,10 +816,10 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
           </div>
         </section>
 
-        {/* Calming, Reassuring Disclaimer for Seniors & Families */}
-        <div className="rounded-2xl border border-teal-100 bg-sand-100/90 px-6 py-4 text-center">
-          <p className="text-sm font-semibold text-teal-900 leading-relaxed">
-            {t.dashboard?.disclaimer || 'Recallia provides gentle daily exercises for mental wellness. Take your time, enjoy every moment, and practice at your own peaceful pace.'}
+        {/* Clean, Reassuring Footer */}
+        <div className="rounded-2xl border border-teal-100 bg-sand-100/80 px-6 py-4 text-center">
+          <p className="text-sm font-medium text-teal-900">
+            {t.dashboard?.disclaimer || 'Recallia provides gentle daily exercises. Practice at your own comfortable pace.'}
           </p>
         </div>
       </main>
@@ -578,6 +828,12 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
       <EmergencyModal
         isOpen={showEmergencyModal}
         onClose={() => setShowEmergencyModal(false)}
+      />
+
+      {/* Peaceful Breathing & Reminiscence Modal */}
+      <PeacefulBreathingModal
+        isOpen={showBreathingModal}
+        onClose={() => setShowBreathingModal(false)}
       />
     </div>
   );
