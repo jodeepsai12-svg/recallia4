@@ -15,8 +15,8 @@ import { useVoice } from '@/context/VoiceContext';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { SpeechRecognizer } from '@/lib/speechRecognition';
-import { supabase } from '@/lib/supabase';
 import { sounds } from '@/lib/soundEffects';
+import { createEmergencyAlert } from '@/lib/firebaseService';
 
 interface EmergencyModalProps {
   isOpen: boolean;
@@ -32,7 +32,7 @@ const QUICK_TAGS = [
 ];
 
 export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { currentLanguage } = useI18n();
   const { announce } = useVoice();
 
@@ -44,7 +44,17 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [smsDeliveryStatus, setSmsDeliveryStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const caregiverPhone =
+    profile?.caregiver?.phoneNumber ||
+    profile?.emergencyContact?.phoneNumber ||
+    '+919876543210';
+  const caregiverName =
+    profile?.caregiver?.name ||
+    profile?.emergencyContact?.name ||
+    'Family Caregiver';
 
   // Audio / MediaRecorder refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -229,7 +239,8 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
 
     setIsSubmitting(true);
     const participantName =
-      user?.user_metadata?.full_name ||
+      profile?.name ||
+      user?.displayName ||
       user?.email?.split('@')[0] ||
       'Senior Participant';
 
@@ -239,9 +250,12 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
         ? `Request: ${selectedTags.join(', ')}`
         : 'Emergency assistance requested by participant.');
 
-    // Save alert into Supabase / local persistence
+    let savedAlertId = `alert_${Date.now()}`;
+
+    // 1. Save alert into Firebase Firestore
     try {
-      await supabase.from('emergency_alerts').insert({
+      const newAlert = await createEmergencyAlert({
+        user_id: user?.uid || 'participant_mary',
         participant_name: participantName,
         message_text: finalMessage,
         audio_url: audioUrl || undefined,
@@ -249,8 +263,35 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
         tags: selectedTags,
         status: 'pending',
       });
+      savedAlertId = newAlert.id;
     } catch (err) {
-      console.warn('Error saving emergency alert:', err);
+      console.warn('Error saving emergency alert to Firestore:', err);
+    }
+
+    // 2. Dispatch real Twilio SMS to caregiver phone number via server backend
+    try {
+      const response = await fetch('/api/emergency/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toPhone: caregiverPhone,
+          participantName,
+          messageText: finalMessage,
+          audioUrl: audioUrl || undefined,
+          tags: selectedTags,
+          alertId: savedAlertId,
+        }),
+      });
+
+      const smsResult = await response.json();
+      if (smsResult.smsDelivered) {
+        setSmsDeliveryStatus(`Live cellular SMS dispatched to caregiver at ${caregiverPhone}.`);
+      } else {
+        setSmsDeliveryStatus(`Alert recorded in Firebase database for ${caregiverName} (${caregiverPhone}).`);
+      }
+    } catch (smsErr) {
+      console.warn('SMS dispatch error:', smsErr);
+      setSmsDeliveryStatus(`Alert recorded in Firebase database for ${caregiverName} (${caregiverPhone}).`);
     }
 
     sounds.playSuccessChime();
@@ -311,17 +352,22 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({ isOpen, onClose 
               </div>
               <h3 className="text-2xl font-bold text-gray-900">Message Sent to Caregiver</h3>
               <p className="text-base text-gray-600 max-w-md mx-auto leading-relaxed">
-                Your caregiver has been notified with your voice memo and location. Please sit
-                comfortably and rest; someone will attend to you shortly.
+                Your caregiver <strong>{caregiverName}</strong> ({caregiverPhone}) has been alerted. Please sit comfortably and rest; someone will attend to you shortly.
               </p>
+
+              {smsDeliveryStatus && (
+                <div className="inline-block rounded-xl bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                  {smsDeliveryStatus}
+                </div>
+              )}
 
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <a
-                  href="tel:+919876543210"
+                  href={`tel:${caregiverPhone}`}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md transition-all active:scale-95"
                 >
                   <PhoneCall className="w-5 h-5" />
-                  Call Caregiver Now
+                  Call {caregiverName} Now
                 </a>
                 <button
                   type="button"

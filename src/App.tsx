@@ -17,7 +17,7 @@ type View = 'landing' | 'signin' | 'signup' | 'dashboard' | 'game' | 'caregiver'
 function AppContent() {
   const { user, loading } = useAuth();
   const { hasSelectedLanguage } = useI18n();
-  const { setActionTriggerHandler, announce } = useVoice();
+  const { setActionTriggerHandler, announce, speak } = useVoice();
   const [view, setView] = useState<View>('landing');
   const [activeGame, setActiveGame] = useState<GameType | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -42,6 +42,10 @@ function AppContent() {
         announce('start_story_recall');
         setActiveGame('story_recall');
         setView('game');
+      } else if (action === 'play_my_memories') {
+        speak('Opening your personalized My Memories activity.');
+        setActiveGame('my_memories');
+        setView('game');
       } else if (action === 'open_caregiver') {
         announce('open_caregiver');
         setView('caregiver');
@@ -54,7 +58,7 @@ function AppContent() {
         setView('dashboard');
       }
     });
-  }, [announce, setActionTriggerHandler]);
+  }, [announce, setActionTriggerHandler, speak]);
 
   // If user hasn't selected language yet, show full-screen onboarding screen
   if (!hasSelectedLanguage && !onboardingCompleted) {
@@ -125,6 +129,7 @@ function AppContent() {
             else if (gameType === 'sequence_memory') announce('start_sequence_memory');
             else if (gameType === 'object_association') announce('start_object_association');
             else if (gameType === 'story_recall') announce('start_story_recall');
+            else if (gameType === 'my_memories') speak('Opening your personalized My Memories activity.');
             setActiveGame(gameType);
             setView('game');
           }}

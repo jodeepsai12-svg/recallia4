@@ -28,7 +28,13 @@ import {
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
-import { supabase } from '@/lib/supabase';
+import {
+  fetchEmergencyAlerts,
+  resolveEmergencyAlert,
+  fetchGameSessions,
+  verifyAndRedeemCaregiverCode,
+  fetchLinkedPatientsForCaregiver,
+} from '@/lib/firebaseService';
 import {
   DEFAULT_PARTICIPANTS,
   SAMPLE_HISTORICAL_SESSIONS,
@@ -38,6 +44,8 @@ import {
 import { CaregiverTrendsChart } from '@/components/CaregiverTrendsChart';
 import { CaregiverPrivacyModal } from '@/components/CaregiverPrivacyModal';
 import { CaregiverReportModal } from '@/components/CaregiverReportModal';
+import { MyMemoriesCaregiverTab } from '@/components/MyMemoriesCaregiverTab';
+import { MyMemoriesRecall } from '@/games/MyMemoriesRecall';
 import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
 import { useVoice } from '@/context/VoiceContext';
 import type { GameSession, GameType, EmergencyAlert } from '@/types';
@@ -68,12 +76,18 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showMemoryPreviewModal, setShowMemoryPreviewModal] = useState(false);
   const [filterGameType, setFilterGameType] = useState<GameType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRelation, setNewMemberRelation] = useState('');
   const [newMemberAge, setNewMemberAge] = useState('');
+
+  const [linkTab, setLinkTab] = useState<'code' | 'create'>('code');
+  const [linkingCodeInput, setLinkingCodeInput] = useState('');
+  const [linkingError, setLinkingError] = useState<string | null>(null);
+  const [linkingLoading, setLinkingLoading] = useState(false);
 
   const currentParticipant = participants.find((p) => p.id === selectedParticipantId) ?? participants[0];
 
@@ -82,6 +96,58 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
     const next = participants.map((p) => (p.id === updated.id ? updated : p));
     setParticipants(next);
     localStorage.setItem('recallia_caregiver_participants', JSON.stringify(next));
+  };
+
+  const handleRedeemLinkingCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkingError(null);
+    if (!linkingCodeInput.trim()) {
+      setLinkingError('Please enter a linking code.');
+      return;
+    }
+
+    setLinkingLoading(true);
+    try {
+      const res = await verifyAndRedeemCaregiverCode(
+        user?.uid || 'caregiver_demo',
+        user?.displayName || user?.email?.split('@')[0] || 'Caregiver',
+        linkingCodeInput.trim()
+      );
+
+      setLinkingLoading(false);
+      if (!res.success || !res.linkedUser) {
+        setLinkingError(res.error || 'Failed to verify linking code.');
+        return;
+      }
+
+      const patient = res.linkedUser;
+      const newLinked: LinkedParticipant = {
+        id: patient.uid,
+        name: patient.name,
+        relationship: patient.caregiver?.relationship || 'Family Member',
+        age: 75,
+        avatarEmoji: '👤',
+        consentDate: new Date().toISOString().split('T')[0],
+        accessLevel: 'full',
+        primaryCaregiverName: user?.displayName || user?.email?.split('@')[0] || 'Caregiver',
+        accessCode: patient.caregiver?.linkingCode || linkingCodeInput.toUpperCase(),
+        weeklyGoalSessions: 5,
+        emailAlerts: true,
+        inactivityAlerts: true,
+        milestoneAlerts: true,
+      };
+
+      const next = [newLinked, ...participants.filter((p) => p.id !== newLinked.id)];
+      setParticipants(next);
+      localStorage.setItem('recallia_caregiver_participants', JSON.stringify(next));
+      setSelectedParticipantId(newLinked.id);
+      setLinkingCodeInput('');
+      setShowNewMemberModal(false);
+      speak(`Linked account for ${newLinked.name} successfully.`);
+    } catch (err) {
+      setLinkingLoading(false);
+      setLinkingError(err instanceof Error ? err.message : 'Error linking account.');
+    }
   };
 
   const handleAddNewParticipant = (e: React.FormEvent) => {
@@ -121,45 +187,74 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: sessData }, { data: alertData }] = await Promise.all([
-      supabase.from('game_sessions').select('*').order('created_at', { ascending: false }),
-      supabase.from('emergency_alerts').select('*').order('created_at', { ascending: false }),
-    ]);
 
-    const fetchedSessions = (sessData ?? []) as GameSession[];
-    setEmergencyAlerts((alertData ?? []) as EmergencyAlert[]);
+    try {
+      const [fetchedAlerts, fetchedSessions] = await Promise.all([
+        fetchEmergencyAlerts(),
+        fetchGameSessions(selectedParticipantId || 'participant_mary'),
+      ]);
 
-    // If current user has real played sessions, merge with realistic historical seed data for smooth caregiver visualization
-    if (fetchedSessions.length > 0) {
-      // Merge unique sessions
-      const existingIds = new Set(fetchedSessions.map((s) => s.id));
-      const combined = [
-        ...fetchedSessions,
-        ...SAMPLE_HISTORICAL_SESSIONS.filter((s) => !existingIds.has(s.id)),
-      ];
-      setGameSessions(combined);
-    } else {
+      setEmergencyAlerts(fetchedAlerts);
+
+      // If user has linked participants in Firestore, load them
+      if (user?.uid) {
+        const cloudPatients = await fetchLinkedPatientsForCaregiver(user.uid);
+        if (cloudPatients && cloudPatients.length > 0) {
+          const mapped: LinkedParticipant[] = cloudPatients.map((cp) => ({
+            id: cp.uid,
+            name: cp.name,
+            relationship: cp.caregiver?.relationship || 'Family Member',
+            age: 75,
+            avatarEmoji: '👤',
+            consentDate: cp.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+            accessLevel: 'full',
+            primaryCaregiverName: user?.displayName || user?.email?.split('@')[0] || 'Caregiver',
+            accessCode: cp.caregiver?.linkingCode || `${cp.name.slice(0, 2).toUpperCase()}-CARE`,
+            weeklyGoalSessions: 5,
+            emailAlerts: true,
+            inactivityAlerts: true,
+            milestoneAlerts: true,
+          }));
+
+          setParticipants((prev) => {
+            const existingIds = new Set(mapped.map((m) => m.id));
+            const merged = [...mapped, ...prev.filter((p) => !existingIds.has(p.id))];
+            localStorage.setItem('recallia_caregiver_participants', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      }
+
+      if (fetchedSessions.length > 0) {
+        const existingIds = new Set(fetchedSessions.map((s) => s.id));
+        const combined = [
+          ...fetchedSessions,
+          ...SAMPLE_HISTORICAL_SESSIONS.filter((s) => !existingIds.has(s.id)),
+        ];
+        setGameSessions(combined);
+      } else {
+        setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+      }
+    } catch (err) {
+      console.warn('Error loading caregiver data from Firestore:', err);
       setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-  }, []);
+  }, [selectedParticipantId, user?.uid, user?.displayName, user?.email]);
 
   const handleResolveAlert = async (alertId: string) => {
-    await supabase
-      .from('emergency_alerts')
-      .update({
-        status: 'resolved',
-        resolved_at: new Date().toISOString(),
-      })
-      .eq('id', alertId);
-
-    setEmergencyAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId ? { ...a, status: 'resolved', resolved_at: new Date().toISOString() } : a
-      )
-    );
-    speak('Emergency alert marked as resolved.');
+    try {
+      await resolveEmergencyAlert(alertId, user?.email || 'Caregiver');
+      setEmergencyAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alertId ? { ...a, status: 'resolved', resolved_at: new Date().toISOString() } : a
+        )
+      );
+      speak('Emergency alert marked as resolved.');
+    } catch (err) {
+      console.warn('Error resolving alert in Firestore:', err);
+    }
   };
 
   const handleToggleAlertAudio = (alert: EmergencyAlert) => {
@@ -795,6 +890,12 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
           </div>
         </section>
 
+        {/* My Memories Personalized Recall Section */}
+        <MyMemoriesCaregiverTab
+          participant={currentParticipant}
+          onPreviewActivity={() => setShowMemoryPreviewModal(true)}
+        />
+
         {/* Privacy & Sharing Controls Summary Box */}
         <section className="mt-8 animate-fade-in-up [animation-delay:350ms]">
           <div className="card flex flex-col items-start justify-between gap-4 bg-teal-900 !p-6 text-white sm:flex-row sm:items-center sm:!p-8">
@@ -860,67 +961,177 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
               Link Loved One
             </h3>
             <p className="mt-1 text-sm text-teal-600">
-              Add a family member to your caregiver dashboard
+              Connect to your family member's Recallia account
             </p>
 
-            <form onSubmit={handleAddNewParticipant} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-teal-800">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Eleanor Vance"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  className="input-field mt-1 !py-3 !text-sm"
-                />
-              </div>
+            {/* Tab Selector */}
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-sand-100 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkTab('code');
+                  setLinkingError(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                  linkTab === 'code'
+                    ? 'bg-white text-teal-950 shadow-xs'
+                    : 'text-teal-700 hover:text-teal-900'
+                }`}
+              >
+                Enter Linking Code
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkTab('create');
+                  setLinkingError(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                  linkTab === 'create'
+                    ? 'bg-white text-teal-950 shadow-xs'
+                    : 'text-teal-700 hover:text-teal-900'
+                }`}
+              >
+                Create Profile
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
+            {linkTab === 'code' ? (
+              <form onSubmit={handleRedeemLinkingCode} className="mt-5 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-teal-800">
-                    Relationship
+                    6-Digit Family Linking Code
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Aunt / Father"
-                    value={newMemberRelation}
-                    onChange={(e) => setNewMemberRelation(e.target.value)}
-                    className="input-field mt-1 !py-3 !text-sm"
+                    required
+                    placeholder="e.g. MA-4819-CARE"
+                    value={linkingCodeInput}
+                    onChange={(e) => setLinkingCodeInput(e.target.value.toUpperCase())}
+                    className="input-field mt-1 !py-3 !text-base tracking-wider font-mono font-bold uppercase"
                   />
+                  <p className="mt-1.5 text-xs text-teal-600 leading-relaxed">
+                    Ask your loved one or look at their Recallia app under "Caregiver Linking Code" in their profile.
+                  </p>
                 </div>
+
+                {linkingError && (
+                  <div className="flex items-start gap-2 rounded-2xl bg-coral-50 p-3 text-xs font-semibold text-coral-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{linkingError}</span>
+                  </div>
+                )}
+
+                <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-teal-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewMemberModal(false)}
+                    className="rounded-xl px-4 py-2 text-sm font-bold text-teal-600 hover:bg-teal-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={linkingLoading || !linkingCodeInput.trim()}
+                    className="btn-primary !px-5 !py-2.5 !text-sm disabled:opacity-60"
+                  >
+                    {linkingLoading ? 'Verifying Code...' : 'Verify & Link Account'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleAddNewParticipant} className="mt-5 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-teal-800">
-                    Age (approx.)
+                    Full Name
                   </label>
                   <input
-                    type="number"
-                    placeholder="e.g. 76"
-                    value={newMemberAge}
-                    onChange={(e) => setNewMemberAge(e.target.value)}
+                    type="text"
+                    required
+                    placeholder="e.g. Eleanor Vance"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
                     className="input-field mt-1 !py-3 !text-sm"
                   />
                 </div>
-              </div>
 
-              <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-teal-100">
-                <button
-                  type="button"
-                  onClick={() => setShowNewMemberModal(false)}
-                  className="rounded-xl px-4 py-2 text-sm font-bold text-teal-600 hover:bg-teal-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary !px-5 !py-2.5 !text-sm"
-                >
-                  Save & Link
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-teal-800">
+                      Relationship
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Aunt / Father"
+                      value={newMemberRelation}
+                      onChange={(e) => setNewMemberRelation(e.target.value)}
+                      className="input-field mt-1 !py-3 !text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-teal-800">
+                      Age (approx.)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 76"
+                      value={newMemberAge}
+                      onChange={(e) => setNewMemberAge(e.target.value)}
+                      className="input-field mt-1 !py-3 !text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-teal-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewMemberModal(false)}
+                    className="rounded-xl px-4 py-2 text-sm font-bold text-teal-600 hover:bg-teal-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary !px-5 !py-2.5 !text-sm"
+                  >
+                    Save & Link
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Test Memory Recall Activity Modal for Caregiver */}
+      {showMemoryPreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal-950/60 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-4xl rounded-3xl bg-sand-50 p-6 sm:p-8 shadow-soft-lg my-8 max-h-[92vh] overflow-y-auto">
+            <div className="mb-6 flex items-center justify-between border-b border-teal-100 pb-4">
+              <div>
+                <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800">
+                  Caregiver Preview Mode
+                </span>
+                <h3 className="font-display text-2xl font-bold text-teal-950 mt-1">
+                  Testing Personal Memory Recall for {currentParticipant.name}
+                </h3>
               </div>
-            </form>
+              <button
+                onClick={() => setShowMemoryPreviewModal(false)}
+                className="rounded-xl border border-teal-200 bg-white px-4 py-2 text-sm font-bold text-teal-800 shadow-soft hover:bg-teal-50"
+              >
+                Close Preview
+              </button>
+            </div>
+
+            <MyMemoriesRecall
+              difficulty="gentle"
+              participantId={currentParticipant.id}
+              onComplete={() => {
+                // Completed preview
+              }}
+              onOpenCaregiverMemories={() => setShowMemoryPreviewModal(false)}
+            />
           </div>
         </div>
       )}

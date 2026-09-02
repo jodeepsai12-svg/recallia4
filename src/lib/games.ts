@@ -3,6 +3,7 @@ import {
   Brain,
   Link2,
   BookOpen,
+  Heart,
   type LucideIcon,
 } from 'lucide-react';
 import type { GameType, GameDifficulty, GameCategory } from '@/types';
@@ -63,6 +64,17 @@ export const GAMES: GameMeta[] = [
     durationMinutes: 6,
     category: 'reading_comprehension',
     categoryLabel: 'Reading comprehension',
+  },
+  {
+    type: 'my_memories',
+    title: 'My Memories',
+    tagline: 'Cherished moments & familiar faces',
+    description: 'Recall special people, beloved places, and familiar objects from your personal memories.',
+    icon: Heart,
+    difficulty: 'gentle',
+    durationMinutes: 5,
+    category: 'personal_reminiscence',
+    categoryLabel: 'Personal reminiscence',
   },
 ];
 

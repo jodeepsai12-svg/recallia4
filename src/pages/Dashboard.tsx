@@ -1,5 +1,21 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { LogOut, Check, Clock, Sparkles, TrendingUp, Calendar, Brain, Gamepad2, ArrowRight, Info, TrendingDown, Minus, Globe, Settings, Users } from 'lucide-react';
+import {
+  LogOut,
+  Check,
+  Clock,
+  Sparkles,
+  Calendar,
+  Gamepad2,
+  ArrowRight,
+  Globe,
+  Users,
+  Settings,
+  Brain,
+  TrendingUp,
+  ShieldCheck,
+  Copy,
+  CheckCircle2,
+} from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { EmergencyButton } from '@/components/EmergencyButton';
 import { EmergencyModal } from '@/components/EmergencyModal';
@@ -7,11 +23,14 @@ import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { useVoice } from '@/context/VoiceContext';
 import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
-import { supabase } from '@/lib/supabase';
+import {
+  fetchGameSessions,
+  saveGameSession,
+  generateCaregiverLinkingCode,
+} from '@/lib/firebaseService';
 import { getActivityIcon } from '@/lib/icons';
 import { GAMES } from '@/lib/games';
-import { getRecommendedGame, type GameRecommendation } from '@/lib/difficultyEngine';
-import type { Activity, ActivityCompletion, GameType, GameSession } from '@/types';
+import type { Activity, GameType, GameSession } from '@/types';
 
 interface DashboardProps {
   onPlayGame?: (gameType: GameType) => void;
@@ -19,20 +38,67 @@ interface DashboardProps {
   onOpenCaregiver?: () => void;
 }
 
+const DEFAULT_ACTIVITIES: Activity[] = [
+  {
+    id: 'act_1',
+    title: 'Picture Recall',
+    description: 'A gentle memory exercise looking at pleasant familiar objects.',
+    category: 'Memory',
+    duration_minutes: 5,
+    difficulty: 'gentle',
+    icon_name: 'Eye',
+    sort_order: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'act_2',
+    title: 'Sequence Memory',
+    description: 'Watch gentle patterns and repeat them at your own comfortable pace.',
+    category: 'Focus',
+    duration_minutes: 4,
+    difficulty: 'gentle',
+    icon_name: 'Brain',
+    sort_order: 2,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'act_3',
+    title: 'Object Association',
+    description: 'Pair everyday objects that naturally go together.',
+    category: 'Language',
+    duration_minutes: 5,
+    difficulty: 'gentle',
+    icon_name: 'Link2',
+    sort_order: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'act_4',
+    title: 'Story Recall',
+    description: 'Enjoy a short comforting story and answer simple questions.',
+    category: 'Comprehension',
+    duration_minutes: 6,
+    difficulty: 'gentle',
+    icon_name: 'BookOpen',
+    sort_order: 4,
+    created_at: new Date().toISOString(),
+  },
+];
+
 export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: DashboardProps = {}) {
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const { t, currentLanguageMeta } = useI18n();
-  const { announce } = useVoice();
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [completions, setCompletions] = useState<ActivityCompletion[]>([]);
+  const { announce, speak } = useVoice();
+  const [activities] = useState<Activity[]>(DEFAULT_ACTIVITIES);
   const [loading, setLoading] = useState(true);
   const [markingDone, setMarkingDone] = useState(false);
   const [gameSessions, setGameSessions] = useState<GameSession[]>([]);
-  const [recommendation, setRecommendation] = useState<GameRecommendation | null>(null);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [linkingCode, setLinkingCode] = useState<string>('');
+  const [copiedCode, setCopiedCode] = useState(false);
   const announcedGreetingRef = useRef(false);
 
-  const firstName = user?.email?.split('@')[0] ?? 'Friend';
+  const firstName = userProfile?.name || user?.displayName || user?.email?.split('@')[0] || 'Friend';
 
   const today = new Date();
   const todayStr = today.toLocaleDateString(undefined, {
@@ -49,25 +115,28 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
   })();
 
   const loadData = useCallback(async () => {
-    const [{ data: actData }, { data: compData }, { data: sessData }] = await Promise.all([
-      supabase.from('activities').select('*').order('sort_order'),
-      supabase
-        .from('activity_completions')
-        .select('*, activity:activities(*)')
-        .order('completed_at', { ascending: false }),
-      supabase
-        .from('game_sessions')
-        .select('*')
-        .order('created_at', { ascending: false }),
-    ]);
+    setLoading(true);
+    try {
+      const sessions = await fetchGameSessions(user?.uid || 'participant_mary');
+      setGameSessions(sessions);
 
-    setActivities(actData ?? []);
-    setCompletions((compData ?? []) as ActivityCompletion[]);
-    const sessions = (sessData ?? []) as GameSession[];
-    setGameSessions(sessions);
-    setRecommendation(getRecommendedGame(sessions));
-    setLoading(false);
-  }, []);
+      // Handle caregiver linking code
+      if (userProfile?.caregiver?.linkingCode) {
+        setLinkingCode(userProfile.caregiver.linkingCode);
+      } else if (user?.uid) {
+        const code = await generateCaregiverLinkingCode(
+          user.uid,
+          firstName,
+          userProfile?.caregiver?.phoneNumber || ''
+        );
+        setLinkingCode(code);
+      }
+    } catch (err) {
+      console.warn('Error loading dashboard data from Firestore:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.uid, userProfile?.caregiver?.linkingCode, userProfile?.caregiver?.phoneNumber, firstName]);
 
   useEffect(() => {
     loadData();
@@ -80,26 +149,27 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
     }
   }, [loading, announce]);
 
-  // Determine which activities were completed today
+  // Determine which activities were completed today from gameSessions
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const completedTodayActivityIds = new Set(
-    completions
-      .filter((c) => new Date(c.completed_at) >= startOfToday)
-      .map((c) => c.activity_id),
+  const todaysCompletedSessions = gameSessions.filter(
+    (s) => new Date(s.created_at) >= startOfToday
   );
 
-  const todaysCompleted = completions.filter(
-    (c) => new Date(c.completed_at) >= startOfToday,
+  const completedTodayGameTypes = new Set(
+    todaysCompletedSessions.map((s) => s.game_type)
   );
 
   // Recommended activity: first activity not yet completed today (by sort order)
   const recommendedActivity =
-    activities.find((a) => !completedTodayActivityIds.has(a.id)) ?? activities[0];
+    activities.find((a) => {
+      const matchedGame = GAMES.find((g) => g.title.toLowerCase().includes(a.title.toLowerCase()));
+      return matchedGame ? !completedTodayGameTypes.has(matchedGame.type) : true;
+    }) ?? activities[0];
 
   const totalActivities = activities.length || 4;
-  const completedTodayCount = todaysCompleted.length;
+  const completedTodayCount = Math.min(todaysCompletedSessions.length, totalActivities);
   const progressPercent =
     totalActivities > 0
       ? Math.round((completedTodayCount / totalActivities) * 100)
@@ -111,21 +181,43 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
   const activeDays = new Set(
-    completions
-      .filter((c) => new Date(c.completed_at) >= sevenDaysAgo)
-      .map((c) => new Date(c.completed_at).toDateString()),
+    gameSessions
+      .filter((s) => new Date(s.created_at) >= sevenDaysAgo)
+      .map((s) => new Date(s.created_at).toDateString())
   );
-  const weeklyActiveDays = activeDays.size;
+  const weeklyActiveDays = Math.max(activeDays.size, todaysCompletedSessions.length > 0 ? 1 : 0);
+
+  const handleCopyCode = () => {
+    if (!linkingCode) return;
+    navigator.clipboard.writeText(linkingCode);
+    setCopiedCode(true);
+    speak(`Copied linking code ${linkingCode} to clipboard.`);
+    setTimeout(() => setCopiedCode(false), 3000);
+  };
 
   const handleMarkComplete = async () => {
     if (!recommendedActivity) return;
     setMarkingDone(true);
-    await supabase.from('activity_completions').insert({
-      activity_id: recommendedActivity.id,
-    });
-    setMarkingDone(false);
-    announce('game_completed');
-    loadData();
+    try {
+      const matchedGame = GAMES.find((g) => g.title.toLowerCase().includes(recommendedActivity.title.toLowerCase())) || GAMES[0];
+      await saveGameSession({
+        user_id: user?.uid,
+        participant_id: user?.uid || 'participant_mary',
+        game_type: matchedGame.type,
+        game_category: matchedGame.category,
+        score: 100,
+        accuracy: 100,
+        mistakes: 0,
+        response_time_ms: 3200,
+        difficulty: 'gentle',
+      });
+      announce('game_completed');
+      await loadData();
+    } catch (err) {
+      console.warn('Error saving activity completion:', err);
+    } finally {
+      setMarkingDone(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -425,6 +517,52 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        {/* Family & Caregiver Connection Card (Discreet, Reassuring) */}
+        <section className="animate-fade-in-up">
+          <div className="rounded-3xl border border-teal-200/90 bg-gradient-to-br from-white via-sand-50/50 to-teal-50/40 p-6 sm:p-7 shadow-soft">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-display text-lg sm:text-xl font-bold text-teal-950">
+                    Family & Caregiver Link
+                  </h3>
+                  <p className="mt-0.5 text-sm text-teal-800 font-medium">
+                    Share this linking code with your trusted caregiver or family member to give them read-only insight.
+                  </p>
+                </div>
+              </div>
+
+              {linkingCode && (
+                <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-teal-200 shadow-xs">
+                  <div className="text-right">
+                    <span className="block text-[10px] font-bold text-teal-600 uppercase tracking-wider">Your Code</span>
+                    <span className="font-mono text-base font-bold text-teal-950 tracking-widest">{linkingCode}</span>
+                  </div>
+                  <button
+                    onClick={handleCopyCode}
+                    className="ml-2 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors"
+                    title="Copy Linking Code"
+                  >
+                    {copiedCode ? <CheckCircle2 className="h-4 w-4 text-teal-700" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {userProfile?.caregiver?.phoneNumber && (
+              <div className="mt-4 pt-3 border-t border-teal-100/70 flex items-center justify-between text-xs text-teal-700 font-medium">
+                <span>
+                  Emergency SMS Contact: <strong className="text-teal-950 font-bold">{userProfile.caregiver.name || 'Caregiver'} ({userProfile.caregiver.phoneNumber})</strong>
+                </span>
+                <span className="text-teal-600">Active protection</span>
+              </div>
+            )}
           </div>
         </section>
 

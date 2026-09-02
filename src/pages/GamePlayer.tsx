@@ -7,14 +7,15 @@ import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { useVoice } from '@/context/VoiceContext';
 import { sounds } from '@/lib/soundEffects';
-import { supabase } from '@/lib/supabase';
+import { saveGameSession, fetchGameSessions } from '@/lib/firebaseService';
 import { getGame } from '@/lib/games';
 import { calculateRecommendedDifficulty, type DifficultyRecommendation } from '@/lib/difficultyEngine';
 import { PictureRecall } from '@/games/PictureRecall';
 import { SequenceMemory } from '@/games/SequenceMemory';
 import { ObjectAssociation } from '@/games/ObjectAssociation';
 import { StoryRecall } from '@/games/StoryRecall';
-import type { GameType, GameResult, GameSession, GameDifficulty } from '@/types';
+import { MyMemoriesRecall } from '@/games/MyMemoriesRecall';
+import type { GameType, GameResult, GameDifficulty } from '@/types';
 
 type Phase = 'start' | 'instructions' | 'playing' | 'result';
 
@@ -36,29 +37,37 @@ export function GamePlayer({ gameType, onExit, onOpenSettings }: GamePlayerProps
 
   const firstName = user?.email?.split('@')[0] ?? 'there';
 
-  const gameTranslations = t[gameType];
+  const gameTranslations = (t as Record<string, { title?: string; description?: string; instructions?: { steps: string[]; tip: string; audioText: string } } | undefined>)[gameType];
   const translatedTitle = gameTranslations?.title || game.title;
   const translatedDesc = gameTranslations?.description || game.description;
 
-  const instructions = gameTranslations?.instructions || {
+  const instructions = gameTranslations?.instructions || (gameType === 'my_memories' ? {
+    steps: [
+      'Look at the familiar memory card and optional photo.',
+      'Read or listen to the short personal story.',
+      'Choose the familiar person, place, or object from the options.',
+      'Take all the time you need — there is no rush.',
+    ],
+    tip: 'Cherish familiar memories at your own comfortable pace.',
+    audioText: 'Look at the personal memory card and choose the matching person, place, or object from the choices.',
+  } : {
     steps: [],
     tip: '',
     audioText: '',
-  };
+  });
 
   // Load user's game sessions and calculate recommended difficulty
   useEffect(() => {
     const loadSessions = async () => {
-      const { data } = await supabase
-        .from('game_sessions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      const userSessions = (data ?? []) as GameSession[];
-      setDiffRec(calculateRecommendedDifficulty(gameType, userSessions));
+      try {
+        const userSessions = await fetchGameSessions(user?.uid || 'participant_mary');
+        setDiffRec(calculateRecommendedDifficulty(gameType, userSessions));
+      } catch (err) {
+        console.warn('Could not load sessions for difficulty calibration:', err);
+      }
     };
     loadSessions();
-  }, [gameType]);
+  }, [gameType, user?.uid]);
 
   // Use the recommended difficulty (fallback to game default)
   const activeDifficulty: GameDifficulty = diffRec?.difficulty ?? game.difficulty;
@@ -76,18 +85,24 @@ export function GamePlayer({ gameType, onExit, onOpenSettings }: GamePlayerProps
     setSaving(true);
     sounds.playSuccessChime();
     announce('game_completed');
-    await supabase.from('game_sessions').insert({
-      game_type: res.game_type,
-      game_category: game.category,
-      score: res.score,
-      accuracy: res.accuracy,
-      mistakes: res.mistakes,
-      response_time_ms: res.response_time_ms,
-      difficulty: res.difficulty,
-    });
+    try {
+      await saveGameSession({
+        user_id: user?.uid,
+        participant_id: user?.uid || 'participant_mary',
+        game_type: res.game_type,
+        game_category: game.category,
+        score: res.score,
+        accuracy: res.accuracy,
+        mistakes: res.mistakes,
+        response_time_ms: res.response_time_ms,
+        difficulty: res.difficulty,
+      });
+    } catch (err) {
+      console.warn('Error saving game session to Firestore:', err);
+    }
     setSaving(false);
     setPhase('result');
-  }, [announce, game.category]);
+  }, [announce, game.category, user?.uid]);
 
   const handlePlayAgain = () => {
     setResult(null);
@@ -350,6 +365,8 @@ function getGameComponent(type: GameType) {
       return ObjectAssociation;
     case 'story_recall':
       return StoryRecall;
+    case 'my_memories':
+      return MyMemoriesRecall;
     default:
       return null;
   }

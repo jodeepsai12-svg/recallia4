@@ -23,7 +23,8 @@ export type GameType =
   | 'picture_recall'
   | 'sequence_memory'
   | 'object_association'
-  | 'story_recall';
+  | 'story_recall'
+  | 'my_memories';
 
 export type GameDifficulty = 'gentle' | 'moderate' | 'challenging';
 
@@ -31,7 +32,8 @@ export type GameCategory =
   | 'visual_recall'
   | 'sequential_memory'
   | 'verbal_association'
-  | 'reading_comprehension';
+  | 'reading_comprehension'
+  | 'personal_reminiscence';
 
 export interface GameResult {
   game_type: GameType;
@@ -67,5 +69,69 @@ export interface EmergencyAlert {
   created_at: string;
   resolved_at?: string;
   resolved_by?: string;
+}
+
+export interface PersonalMemory {
+  id: string;
+  participant_id: string;
+  person_name: string;
+  place_name: string;
+  object_name: string;
+  memory_text: string;
+  photo_url?: string;
+  photo_alt?: string;
+  is_approved: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CaregiverInfo {
+  name: string;
+  phoneNumber: string;
+  relationship: string;
+  caregiverUid?: string;
+  linkingCode?: string;
+  linkingCodeExpiresAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  photoURL?: string | null;
+  authProvider: 'google' | 'phone' | 'password' | 'anonymous';
+  createdAt: string;
+  updatedAt: string;
+  caregiver?: CaregiverInfo;
+  emergencyContact?: {
+    name: string;
+    phoneNumber: string;
+    relationship: string;
+  };
+  preferredLanguage?: string;
+  role?: 'user' | 'caregiver' | 'admin';
+  linkedCaregiverUids?: string[];
+}
+
+export interface CaregiverLink {
+  code: string;
+  userUid: string;
+  userName: string;
+  userPhone?: string;
+  caregiverPhone?: string;
+  createdAt: string;
+  expiresAt: string;
+  used: boolean;
+  usedByUid?: string;
+}
+
+export interface PersonalMemoryConsent {
+  participant_id: string;
+  has_consent: boolean;
+  consent_given_by: string;
+  consent_date: string;
+  notes?: string;
 }
 

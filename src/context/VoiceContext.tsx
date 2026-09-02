@@ -154,7 +154,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     [setLanguage]
   );
 
-  // Send message to AI assistant
+  // Send message to AI assistant with real-time streaming
   const sendMessageToAssistant = useCallback(
     async (userText: string) => {
       if (!userText || userText.trim() === '') return;
@@ -166,6 +166,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         language: detectedLanguage,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
+
+      const botMsgId = `msg_${Date.now() + 1}_bot`;
 
       setAssistantMessages((prev) => [...prev, userMsg]);
       setIsProcessingAI(true);
@@ -194,34 +196,116 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Server error');
         }
 
-        const data = await response.json();
-        const replyText = data.reply || "I'm here to assist you with your cognitive exercises.";
-        const newDetectedLang = (data.detectedLanguage as SupportedLanguageCode) || language;
-        setDetectedLanguage(newDetectedLang);
+        let accumulatedText = '';
+        let triggeredAction: string | null = null;
+        let responseLang = detectedLanguage || language;
+        let hasAddedBotMsg = false;
 
-        const botMsg: AssistantMessage = {
-          id: `msg_${Date.now()}_bot`,
-          role: 'assistant',
-          text: replyText,
-          language: newDetectedLang,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          actionTriggered: data.action,
+        const updateBotMessage = (text: string, lang: SupportedLanguageCode, action?: string | null) => {
+          setAssistantMessages((prev) => {
+            const exists = prev.some((m) => m.id === botMsgId);
+            if (exists) {
+              return prev.map((m) =>
+                m.id === botMsgId
+                  ? {
+                      ...m,
+                      text,
+                      language: lang,
+                      ...(action !== undefined ? { actionTriggered: action } : {}),
+                    }
+                  : m
+              );
+            } else {
+              return [
+                ...prev,
+                {
+                  id: botMsgId,
+                  role: 'assistant',
+                  text,
+                  language: lang,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  actionTriggered: action || undefined,
+                },
+              ];
+            }
+          });
         };
 
-        setAssistantMessages((prev) => [...prev, botMsg]);
+        if (response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
 
-        // Speak the reply aloud in the detected language
-        if (isVoiceGuideEnabled) {
-          const speechText = data.spokenScript || replyText;
-          speak(speechText, newDetectedLang);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(trimmed.slice(6));
+                  if (data.text) {
+                    accumulatedText += data.text;
+                    if (!hasAddedBotMsg) {
+                      hasAddedBotMsg = true;
+                      setIsProcessingAI(false);
+                    }
+                    updateBotMessage(accumulatedText, responseLang);
+                  }
+                  if (data.action) {
+                    triggeredAction = data.action;
+                  }
+                  if (data.detectedLanguage) {
+                    responseLang = data.detectedLanguage as SupportedLanguageCode;
+                    setDetectedLanguage(responseLang);
+                  }
+                } catch {
+                  // ignore JSON parse error on incomplete line
+                }
+              }
+            }
+          }
+
+          // Process any residual buffer
+          if (buffer.trim().startsWith('data: ')) {
+            try {
+              const data = JSON.parse(buffer.trim().slice(6));
+              if (data.text) {
+                accumulatedText += data.text;
+                updateBotMessage(accumulatedText, responseLang);
+              }
+              if (data.action) triggeredAction = data.action;
+              if (data.detectedLanguage) {
+                responseLang = data.detectedLanguage as SupportedLanguageCode;
+                setDetectedLanguage(responseLang);
+              }
+            } catch {
+              // ignore parse error
+            }
+          }
         }
 
-        // Execute action if suggested
-        if (data.action) {
-          handleAction(data.action);
+        // Finalize bot message if text was received
+        if (accumulatedText.trim()) {
+          updateBotMessage(accumulatedText, responseLang, triggeredAction);
+          setIsProcessingAI(false);
+
+          if (isVoiceGuideEnabled) {
+            speak(accumulatedText, responseLang);
+          }
+          if (triggeredAction) {
+            handleAction(triggeredAction);
+          }
+        } else {
+          throw new Error('Empty response');
         }
       } catch (err) {
-        console.warn('AI Assistant error:', err);
+        console.warn('AI Assistant error (recovering with fallback):', err);
         const fallbackText = language === 'as'
           ? 'মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ।'
           : language === 'ne'

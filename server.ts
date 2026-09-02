@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
+import twilio from 'twilio';
 
 dotenv.config();
 
@@ -12,6 +13,20 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Lazy initialization of Twilio client
+let twilioClient: twilio.Twilio | null = null;
+function getTwilio(): twilio.Twilio | null {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!accountSid || !authToken) {
+    return null;
+  }
+  if (!twilioClient) {
+    twilioClient = twilio(accountSid, authToken);
+  }
+  return twilioClient;
+}
 
 // Lazy initialization of Gemini client
 let genAIClient: GoogleGenAI | null = null;
@@ -39,8 +54,83 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasTwilioKey: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
     timestamp: new Date().toISOString(),
   });
+});
+
+// Emergency SMS Dispatch Endpoint
+app.post('/api/emergency/send-sms', async (req, res) => {
+  try {
+    const {
+      toPhone,
+      participantName = 'Senior Participant',
+      messageText = 'Emergency assistance requested.',
+      audioUrl,
+      tags = [],
+      alertId,
+    } = req.body;
+
+    if (!toPhone) {
+      res.status(400).json({
+        success: false,
+        error: 'Caregiver phone number is required.',
+      });
+      return;
+    }
+
+    const twilio = getTwilio();
+    const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+
+    const formattedMessage = `🚨 RECALLIA EMERGENCY ALERT 🚨\n\nParticipant: ${participantName}\nNeed: ${messageText}\n${
+      tags.length > 0 ? `Tags: ${tags.join(', ')}\n` : ''
+    }${audioUrl ? `Voice Note: ${audioUrl}\n` : ''}Time: ${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nPlease check the Recallia Caregiver Portal or contact your loved one immediately.`;
+
+    if (twilio && fromPhone) {
+      try {
+        const twilioRes = await twilio.messages.create({
+          body: formattedMessage,
+          from: fromPhone,
+          to: toPhone,
+        });
+
+        console.log(`[Twilio SMS] Emergency SMS dispatched successfully to ${toPhone}. SID: ${twilioRes.sid}`);
+        res.json({
+          success: true,
+          smsDelivered: true,
+          sid: twilioRes.sid,
+          status: twilioRes.status,
+          alertId,
+        });
+        return;
+      } catch (twilioErr) {
+        console.error('[Twilio SMS Error]:', twilioErr);
+        res.json({
+          success: true,
+          smsDelivered: false,
+          error: twilioErr instanceof Error ? twilioErr.message : 'Twilio dispatch failed',
+          note: 'Alert saved in Firestore database. Live SMS delivery encountered an error.',
+          alertId,
+        });
+        return;
+      }
+    }
+
+    // Twilio credentials not configured in environment
+    console.log(`[Emergency Notification] Alert for ${participantName} to ${toPhone}: ${messageText} (Twilio credentials not configured in .env)`);
+    res.json({
+      success: true,
+      smsDelivered: false,
+      note: 'Alert stored in Firebase Firestore. To enable real cellular SMS sending, configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in settings.',
+      alertId,
+    });
+  } catch (err) {
+    console.error('Error in /api/emergency/send-sms:', err);
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Internal server error while processing emergency alert',
+    });
+  }
 });
 
 const NE_LANGUAGES_INFO = `
@@ -58,11 +148,22 @@ Supported North-Eastern Indian Languages & Dialects in Recallia:
 
 // Multilingual Conversational Voice Assistant
 app.post('/api/assistant/chat', async (req, res) => {
+  // Setup Server-Sent Events headers for immediate token streaming
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = (data: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
   try {
-    const { message, selectedLanguage = 'en', history = [], screenContext = {} } = req.body;
+    const { message, selectedLanguage = 'en', history = [] } = req.body;
 
     if (!message || typeof message !== 'string') {
-      res.status(400).json({ error: 'Message is required' });
+      sendEvent({ error: 'Message is required' });
+      res.end();
       return;
     }
 
@@ -75,7 +176,9 @@ app.post('/api/assistant/chat', async (req, res) => {
       let reply = '';
       let suggestedAction: string | null = null;
 
-      if (lower.includes('picture') || lower.includes('photo') || lower.includes('ছৱি') || lower.includes('तस्बिर')) {
+      if (lower.includes('my memories') || lower.includes('personal memory') || lower.includes('personal memories') || lower.includes('স্মৃতি') || lower.includes('यादहरू')) {
+        suggestedAction = 'play_my_memories';
+      } else if (lower.includes('picture') || lower.includes('photo') || lower.includes('ছৱি') || lower.includes('तस्बिर')) {
         suggestedAction = 'play_picture_recall';
       } else if (lower.includes('sequence') || lower.includes('order') || lower.includes('ক্ৰম') || lower.includes('क्रम')) {
         suggestedAction = 'play_sequence_memory';
@@ -137,20 +240,46 @@ app.post('/api/assistant/chat', async (req, res) => {
       };
     };
 
+    // Check user intent for quick actions
+    const lowerMessage = message.toLowerCase();
+    let detectedAction: string | null = null;
+    let detectedLang = selectedLanguage;
+
+    if (lowerMessage.includes('my memories') || lowerMessage.includes('personal memory') || lowerMessage.includes('personal memories') || lowerMessage.includes('স্মৃতি') || lowerMessage.includes('यादहरू')) {
+      detectedAction = 'play_my_memories';
+    } else if (lowerMessage.includes('picture') || lowerMessage.includes('photo') || lowerMessage.includes('ছৱি') || lowerMessage.includes('तस्बिर')) {
+      detectedAction = 'play_picture_recall';
+    } else if (lowerMessage.includes('sequence') || lowerMessage.includes('order') || lowerMessage.includes('ক্ৰম') || lowerMessage.includes('क्रम')) {
+      detectedAction = 'play_sequence_memory';
+    } else if (lowerMessage.includes('object') || lowerMessage.includes('word') || lowerMessage.includes('বস্তু') || lowerMessage.includes('शब्द')) {
+      detectedAction = 'play_object_association';
+    } else if (lowerMessage.includes('story') || lowerMessage.includes('সাধু') || lowerMessage.includes('कथा') || lowerMessage.includes('thawnthu')) {
+      detectedAction = 'play_story_recall';
+    } else if (lowerMessage.includes('caregiver') || lowerMessage.includes('report') || lowerMessage.includes('অভিভাৱক') || lowerMessage.includes('हेरचाह')) {
+      detectedAction = 'open_caregiver';
+    } else if (lowerMessage.includes('nepali') || lowerMessage.includes('नेपाली')) {
+      detectedAction = 'change_lang_ne';
+      detectedLang = 'ne';
+    } else if (lowerMessage.includes('assamese') || lowerMessage.includes('অসমীয়া')) {
+      detectedAction = 'change_lang_as';
+      detectedLang = 'as';
+    }
+
     if (!ai) {
       const fallback = createFallbackResponse(message, selectedLanguage);
-      res.json(fallback);
+      sendEvent({ text: fallback.reply, action: fallback.action, detectedLanguage: fallback.detectedLanguage, done: true });
+      res.end();
       return;
     }
 
     const systemInstruction = `
-You are Recallia AI, an advanced, deeply compassionate, highly capable conversational AI companion powered by Google Gemini (similar to Gemini and ChatGPT). You are integrated into Recallia, a cognitive wellness web platform designed for elderly users and their families in North-Eastern India and beyond.
+You are Recallia AI, an advanced, deeply compassionate, highly capable conversational AI companion powered by Google Gemini. You are integrated into Recallia, a cognitive wellness web platform designed for elderly users and their families in North-Eastern India and beyond.
 
 ${NE_LANGUAGES_INFO}
 
 YOUR CAPABILITIES AS A GEN-AI COMPANION (Like ChatGPT / Gemini):
 1. GENERAL KNOWLEDGE & CONVERSATION:
-   - You can answer ANY question the user asks: science, daily life, history, cooking, gentle exercise, healthy habits, weather, nature, plants, traditional folklore, and pleasant friendly conversation.
+   - You can answer ANY question the user asks: science, daily life, history, cooking, gentle exercise, healthy habits, brain wellness, weather, nature, plants, traditional folklore, and pleasant friendly conversation.
    - You are a warm, polite, and patient companion who speaks with elder-friendly respect and positivity.
 
 2. NORTH-EASTERN INDIA CULTURAL & LINGUISTIC EXPERTISE:
@@ -159,77 +288,119 @@ YOUR CAPABILITIES AS A GEN-AI COMPANION (Like ChatGPT / Gemini):
    - Always detect the language of the user's message and respond in that EXACT same language with correct native script or orthography. If not specified, use the user's active language (${selectedLanguage}).
 
 3. COGNITIVE WELLNESS & RECALLIA GUIDE:
-   - If asked about memory, brain wellness, or the app:
+   - If asked about memory, brain wellness, daily tips, or the app:
      * Picture Recall (visual memory of everyday items like tea kettle, bell, lantern, spectacles)
      * Sequence Memory (glowing colored tile patterns)
      * Object Association (verbal & conceptual pairing)
      * Story Recall (peaceful short stories and questions)
+     * My Memories (gentle personal memories recall with familiar family names, places, and objects)
      * Caregiver Portal (non-diagnostic wellness trends and reports)
    - You provide gentle encouragement. You never make intimidating clinical claims or medical diagnoses.
 
-4. STRUCTURED IN-APP ACTIONS:
-   If the user asks to start a game or perform an in-app action, set the "action" field:
-   - "play_picture_recall"
-   - "play_sequence_memory"
-   - "play_object_association"
-   - "play_story_recall"
-   - "open_caregiver"
-   - "open_settings"
-   - "change_lang_as" | "change_lang_nyi" | "change_lang_mni" | "change_lang_kha" | "change_lang_lus" | "change_lang_ao" | "change_lang_ne" | "change_lang_kok" | "change_lang_en"
-   - null (if it is general conversation or advice)
-
-FORMATTING & VOICE:
-- Structure answers clearly with short, easy-to-read sentences or clean bullet points so elderly readers can digest them easily.
-- Provide a clean "spokenScript" (plain text suitable for Text-to-Speech audio readout).
-
-OUTPUT FORMAT:
-Respond strictly in valid JSON matching this schema:
-{
-  "reply": "Rich, formatted conversational answer in detected language",
-  "detectedLanguage": "one of: 'as' | 'nyi' | 'mni' | 'kha' | 'lus' | 'ao' | 'ne' | 'kok' | 'en'",
-  "action": "action_code_string or null",
-  "spokenScript": "Clean plain text version for voice synthesis (no asterisks or special markdown)"
-}
+FORMATTING & STYLE:
+- Respond DIRECTLY in conversational natural text (do NOT wrap in JSON, do NOT use code fences).
+- Format answers clearly with short, easy-to-read sentences or clean bullet points so elderly readers can digest them easily.
+- Keep tone warm, encouraging, soothing, and clear.
 `;
 
     // Construct conversation history
-    const conversationHistory = history.map((item: { role: string; content: string }) => `${item.role === 'user' ? 'User' : 'Assistant'}: ${item.content}`).join('\n');
+    const conversationHistory = history
+      .map((item: { role: string; content: string }) => `${item.role === 'user' ? 'User' : 'Assistant'}: ${item.content}`)
+      .join('\n');
 
-    const prompt = `
-${conversationHistory ? `Recent Conversation:\n${conversationHistory}\n` : ''}
-Current User Message: "${message}"
+    const prompt = conversationHistory
+      ? `Recent Conversation:\n${conversationHistory}\n\nUser: ${message}`
+      : message;
 
-Respond with JSON only.`;
+    // Stream with fast Gemini Flash models
+    const modelsToTry = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    let streamedSuccessfully = false;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        temperature: 0.4,
-      },
-    });
+    for (const modelName of modelsToTry) {
+      try {
+        const streamPromise = ai.models.generateContentStream({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            temperature: 0.4,
+          },
+        });
 
-    const responseText = response.text ? response.text.trim() : '';
-    try {
-      const parsed = JSON.parse(responseText);
-      res.json({
-        reply: parsed.reply || "I'm here to help you with your daily cognitive exercises.",
-        detectedLanguage: parsed.detectedLanguage || selectedLanguage,
-        action: parsed.action || null,
-        spokenScript: parsed.spokenScript || parsed.reply || '',
-      });
-    } catch {
-      res.json(createFallbackResponse(message, selectedLanguage));
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout on model ${modelName}`)), 6000)
+        );
+
+        const responseStream = await Promise.race([streamPromise, timeoutPromise]);
+
+        for await (const chunk of responseStream) {
+          const text = chunk.text;
+          if (text) {
+            streamedSuccessfully = true;
+            sendEvent({ text });
+          }
+        }
+
+        if (streamedSuccessfully) {
+          break;
+        }
+      } catch (streamErr) {
+        console.warn(`Model ${modelName} streaming failed, trying generateContent fallback:`, streamErr instanceof Error ? streamErr.message : streamErr);
+        try {
+          const genPromise = ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              temperature: 0.4,
+            },
+          });
+          const genTimeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout on generateContent ${modelName}`)), 4000)
+          );
+          const res = await Promise.race([genPromise, genTimeout]);
+          if (res?.text) {
+            streamedSuccessfully = true;
+            sendEvent({ text: res.text.trim() });
+            break;
+          }
+        } catch (modelErr) {
+          console.warn(`Model ${modelName} call failed:`, modelErr instanceof Error ? modelErr.message : modelErr);
+        }
+      }
     }
-  } catch (error: unknown) {
-    console.error('Error in /api/assistant/chat:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({
-      error: 'Failed to process voice assistant request',
-      details: errorMessage,
+
+    if (!streamedSuccessfully) {
+      const fallback = createFallbackResponse(message, selectedLanguage);
+      sendEvent({ text: fallback.reply });
+      if (fallback.action && !detectedAction) {
+        detectedAction = fallback.action;
+      }
+    }
+
+    // Send final completion event with action and language metadata
+    sendEvent({
+      done: true,
+      action: detectedAction,
+      detectedLanguage: detectedLang,
     });
+    res.end();
+  } catch (error: unknown) {
+    console.error('Error in /api/assistant/chat (gracefully recovering with fallback):', error);
+    const { selectedLanguage = 'en' } = req.body || {};
+    const fallbackText = selectedLanguage === 'as'
+      ? 'নমস্কাৰ! মই আপোনাৰ ৰিকলিয়া ভয়েচ সহায়ক। মই আপোনাক সহায় কৰিবলৈ সাজু আছোঁ।'
+      : selectedLanguage === 'ne'
+      ? 'नमस्ते! म तपाईंको रिकलिया भ्वाइस सहायक हुँ। म तपाईंलाई मद्दत गर्न तयार छु।'
+      : "Hello! I am your Recallia Voice Companion. I am here to guide and practice gentle memory activities with you.";
+
+    sendEvent({
+      text: fallbackText,
+      done: true,
+      action: null,
+      detectedLanguage: selectedLanguage,
+    });
+    res.end();
   }
 });
 

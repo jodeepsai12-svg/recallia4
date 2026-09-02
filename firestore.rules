@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isLinkedCaregiver(userId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(userId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(userId)).data.get('linkedCaregiverUids', [])) ||
+        (exists(/databases/$(database)/documents/users/$(userId)) &&
+         get(/databases/$(database)/documents/users/$(userId)).data.get('caregiver', {}).get('caregiverUid', '') == request.auth.uid)
+      );
+    }
+
+    // User Profile Document
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isLinkedCaregiver(userId) || isAuthenticated();
+      allow write: if isOwner(userId) || isAuthenticated();
+      
+      // User Subcollections (Memories, Consent, Sessions)
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId) || isLinkedCaregiver(userId);
+      }
+    }
+
+    // Caregiver Linking Codes
+    match /caregiver_links/{code} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+    }
+
+    // Emergency Alerts (SOS)
+    match /emergency_alerts/{alertId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+    }
+
+    // Public catalog activities
+    match /activities/{activityId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

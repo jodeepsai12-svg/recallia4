@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "User account information, caregiver contact details, and emergency settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "authProvider": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "role": { "type": "string" },
+        "caregiver": { "type": "object" },
+        "emergencyContact": { "type": "object" },
+        "linkedCaregiverUids": { "type": "array" },
+        "linkedPatientUids": { "type": "array" },
+        "preferredLanguage": { "type": "string" }
+      },
+      "required": ["uid", "name", "createdAt"]
+    },
+    "users/{userId}/memories": {
+      "title": "Personal Memory",
+      "description": "Familiar memories and photos for cognitive recall exercises",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participant_id": { "type": "string" },
+        "person_name": { "type": "string" },
+        "place_name": { "type": "string" },
+        "object_name": { "type": "string" },
+        "memory_text": { "type": "string" },
+        "photo_url": { "type": "string" },
+        "is_approved": { "type": "boolean" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["person_name", "place_name", "object_name", "memory_text"]
+    },
+    "users/{userId}/consent": {
+      "title": "Memory Consent",
+      "description": "Consent record for memory recall activities",
+      "type": "object",
+      "properties": {
+        "participant_id": { "type": "string" },
+        "has_consent": { "type": "boolean" },
+        "consent_given_by": { "type": "string" },
+        "consent_date": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["has_consent"]
+    },
+    "users/{userId}/game_sessions": {
+      "title": "Game Session",
+      "description": "Cognitive activity completion records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "game_type": { "type": "string" },
+        "score": { "type": "number" },
+        "accuracy": { "type": "number" },
+        "mistakes": { "type": "number" },
+        "response_time_ms": { "type": "number" },
+        "difficulty": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["user_id", "game_type", "created_at"]
+    },
+    "caregiver_links": {
+      "title": "Caregiver Linking Code",
+      "description": "Secure tokens for connecting caregivers to family member accounts",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "userUid": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "caregiverPhone": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "used": { "type": "boolean" },
+        "usedByUid": { "type": "string" }
+      },
+      "required": ["code", "userUid", "createdAt", "used"]
+    },
+    "emergency_alerts": {
+      "title": "Emergency Alert",
+      "description": "SOS emergency alerts dispatched from senior dashboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "participant_name": { "type": "string" },
+        "message_text": { "type": "string" },
+        "audio_url": { "type": "string" },
+        "audio_duration_seconds": { "type": "number" },
+        "tags": { "type": "array" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "resolved_at": { "type": "string" },
+        "resolved_by": { "type": "string" },
+        "sms_status": { "type": "string" }
+      },
+      "required": ["user_id", "participant_name", "status", "created_at"]
+    }
+  }
+}

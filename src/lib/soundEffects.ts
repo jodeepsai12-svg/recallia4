@@ -180,6 +180,32 @@ class SoundEffects {
       // AudioContext fallback
     }
   }
+
+  // Gentle card flip / shuffle sound
+  playCardFlip() {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch {
+      // AudioContext fallback
+    }
+  }
 }
 
 export const sounds = new SoundEffects();
