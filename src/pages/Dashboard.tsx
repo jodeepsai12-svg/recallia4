@@ -319,45 +319,48 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10 space-y-8 sm:space-y-10">
         {/* Warm Elderly-Friendly Greeting Card & Today's Comfort Corner */}
         <div className="rounded-3xl border border-teal-100 bg-gradient-to-br from-teal-50/90 via-white to-sand-100 p-6 sm:p-8 shadow-soft">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-center">
             {/* Left side: Greeting & Personal Welcome */}
             <div className="lg:col-span-2">
-              <p className="text-sm sm:text-base font-bold text-teal-700 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-teal-600" />
+              <p className="text-xs sm:text-sm font-bold text-teal-700 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-teal-600" />
                 <span>{todayStr}</span>
               </p>
-              <h1 className="mt-2 font-display text-2xl sm:text-4xl font-bold text-teal-950">
-                {greeting}, {firstName}!
+              <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-teal-950">
+                {greeting}, {firstName}
               </h1>
-              <p className="mt-2 text-base sm:text-lg text-teal-800 font-medium">
-                {t.dashboard?.greetingSubtitle || "Let's keep your mind active with simple, pleasant exercises today."}
-              </p>
-              <p className="mt-2 text-sm text-teal-700 font-medium">
-                Take each exercise at your own comfortable pace.
+              <p className="mt-1 text-sm sm:text-base text-teal-800 font-medium">
+                Take your time today.
               </p>
             </div>
 
-            {/* Right side: Today's Comfort Corner */}
-            <div className="rounded-2xl border border-teal-200/80 bg-white/80 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-teal-900 font-bold text-sm">
-                <Sun className="h-4 w-4 text-amber-500 shrink-0" />
-                <span>Today&apos;s Comfort Corner</span>
+            {/* Right side: Today's Comfort Corner - Large, elder-friendly reminders */}
+            <div className="rounded-2xl border-2 border-teal-200/80 bg-white/95 p-4 sm:p-5 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center gap-2.5 text-teal-950 font-bold text-base sm:text-lg">
+                <Sun className="h-5 w-5 text-amber-500 shrink-0" />
+                <span>Daily Reminders</span>
               </div>
 
-              <div className="space-y-2 text-xs text-teal-800">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-coral-500 shrink-0" />
-                  <p><strong className="text-teal-950">Mindful Thought:</strong> Relax and enjoy each step.</p>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-coral-50 shrink-0">
+                    <Heart className="h-4 w-4 text-coral-500" />
+                  </div>
+                  <span className="text-base sm:text-lg font-semibold text-teal-950">Relax & enjoy</span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Droplets className="h-4 w-4 text-teal-600 shrink-0" />
-                  <p><strong className="text-teal-950">Hydration:</strong> Keep water or warm tea nearby.</p>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-50 shrink-0">
+                    <Droplets className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <span className="text-base sm:text-lg font-semibold text-teal-950">Drink water</span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-teal-600 shrink-0" />
-                  <p><strong className="text-teal-950">Daily Goal:</strong> 1 to 2 gentle activities (5–10 mins).</p>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-50 shrink-0">
+                    <Clock className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <span className="text-base sm:text-lg font-semibold text-teal-950">1–2 activities</span>
                 </div>
               </div>
             </div>
@@ -756,32 +759,32 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
 
         {/* Family & Caregiver Connection Card (Discreet, Reassuring) */}
         <section className="animate-fade-in-up">
-          <div className="rounded-3xl border border-teal-200/90 bg-gradient-to-br from-white via-sand-50/50 to-teal-50/40 p-6 sm:p-7 shadow-soft">
+          <div className="rounded-3xl border border-teal-200/90 bg-gradient-to-br from-white via-sand-50/50 to-teal-50/40 p-5 sm:p-6 shadow-soft">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
-                  <ShieldCheck className="h-6 w-6" />
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg sm:text-xl font-bold text-teal-950">
-                    Family &amp; Caregiver Link
+                  <h3 className="font-display text-lg font-bold text-teal-950">
+                    Caregiver Link
                   </h3>
-                  <p className="mt-0.5 text-sm text-teal-800 font-medium">
-                    Share this code with your family or caregiver.
+                  <p className="text-xs sm:text-sm text-teal-800 font-medium">
+                    Share code to connect
                   </p>
                 </div>
               </div>
 
               {linkingCode && (
-                <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-teal-200 shadow-xs">
+                <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-2xl border border-teal-200 shadow-xs">
                   <div className="text-right">
-                    <span className="block text-[10px] font-bold text-teal-600 uppercase tracking-wider">Your Code</span>
+                    <span className="block text-[10px] font-bold text-teal-600 uppercase tracking-wider">Code</span>
                     <span className="font-mono text-base font-bold text-teal-950 tracking-widest">{linkingCode}</span>
                   </div>
                   <button
                     onClick={handleCopyCode}
-                    className="ml-2 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors"
-                    title="Copy Linking Code"
+                    className="ml-1.5 inline-flex items-center justify-center h-8 w-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors"
+                    title="Copy Code"
                   >
                     {copiedCode ? <CheckCircle2 className="h-4 w-4 text-teal-700" /> : <Copy className="h-4 w-4" />}
                   </button>
@@ -789,28 +792,28 @@ export function Dashboard({ onPlayGame, onOpenSettings, onOpenCaregiver }: Dashb
               )}
             </div>
 
-            {/* Concise status points */}
-            <div className="mt-4 pt-4 border-t border-teal-100/70 grid gap-3 sm:grid-cols-3 text-xs text-teal-800">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-teal-600 shrink-0" />
-                <p><strong>Private:</strong> Only game completion is shared.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-teal-600 shrink-0" />
-                <p><strong>Stay Connected:</strong> Family can see your activity.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-teal-600 shrink-0" />
-                <p><strong>Simple Setup:</strong> Give them this code to connect.</p>
-              </div>
+            {/* Ultra-concise status points */}
+            <div className="mt-3.5 pt-3.5 border-t border-teal-100/70 flex flex-wrap items-center justify-between gap-2.5 text-xs text-teal-800">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Check className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                Private
+              </span>
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Check className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                Family updates
+              </span>
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Check className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                Easy link
+              </span>
             </div>
 
             {userProfile?.caregiver?.phoneNumber && (
-              <div className="mt-4 pt-3 border-t border-teal-100/70 flex items-center justify-between text-xs text-teal-700 font-medium">
+              <div className="mt-3 pt-2.5 border-t border-teal-100/70 flex items-center justify-between text-xs text-teal-700 font-medium">
                 <span>
-                  Emergency SMS Contact: <strong className="text-teal-950 font-bold">{userProfile.caregiver.name || 'Caregiver'} ({userProfile.caregiver.phoneNumber})</strong>
+                  Emergency: <strong className="text-teal-950 font-bold">{userProfile.caregiver.name || 'Caregiver'} ({userProfile.caregiver.phoneNumber})</strong>
                 </span>
-                <span className="text-teal-600">Active protection</span>
+                <span className="text-teal-600 font-semibold">Active</span>
               </div>
             )}
           </div>

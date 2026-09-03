@@ -164,7 +164,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         role: 'user',
         text: userText,
         language,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }),
       };
 
       const botMsgId = `msg_${Date.now() + 1}_bot`;
@@ -223,7 +228,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
                   role: 'assistant',
                   text,
                   language: lang,
-                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  timestamp: new Date().toLocaleTimeString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  }),
                   actionTriggered: action || undefined,
                 },
               ];
@@ -300,6 +310,18 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           }
           if (triggeredAction) {
             handleAction(triggeredAction);
+            // If it's an in-app navigation action, smoothly close the assistant modal after a brief confirmation so elder lands directly on the requested game/screen!
+            if (
+              triggeredAction.startsWith('play_') ||
+              triggeredAction === 'open_caregiver' ||
+              triggeredAction === 'open_settings' ||
+              triggeredAction === 'back_to_dashboard' ||
+              triggeredAction === 'start_breathing'
+            ) {
+              setTimeout(() => {
+                setAssistantOpen(false);
+              }, 1200);
+            }
           }
         } else {
           throw new Error('Empty response');

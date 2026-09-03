@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import Markdown from 'react-markdown';
 import {
   Mic,
   MicOff,
@@ -6,6 +7,8 @@ import {
   VolumeX,
   Sparkles,
   X,
+  ArrowLeft,
+  Brain,
   Send,
   RotateCcw,
   Languages,
@@ -18,6 +21,8 @@ import {
   BookOpen,
   HeartHandshake,
   Bot,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useVoice } from '@/context/VoiceContext';
 import { useI18n, LANGUAGES, type SupportedLanguageCode } from '@/i18n';
@@ -46,6 +51,50 @@ export function VoiceAssistantWidget() {
   const [textInput, setTextInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Live real-time Indian Standard Time (IST) for senior orientation
+  const [istTimeStr, setIstTimeStr] = useState(() => {
+    return new Date().toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  });
+  const [istDateStr, setIstDateStr] = useState(() => {
+    return new Date().toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  });
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setIstTimeStr(
+        now.toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })
+      );
+      setIstDateStr(
+        now.toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      );
+    };
+    const interval = setInterval(updateTime, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Strictly use user's chosen language metadata
   const activeLangMeta =
@@ -84,6 +133,7 @@ export function VoiceAssistantWidget() {
     switch (language) {
       case 'as':
         return [
+          { text: 'আজি কি বাৰ আৰু কিমান তাৰিখ?', icon: Clock, label: 'তাৰিখ আৰু বাৰ' },
           { text: 'মোক অসমৰ এখন শান্ত লোককথা শুনাওক', icon: BookOpen, label: 'শান্ত লোককথা' },
           { text: 'ছৱি মনত ৰখা খেল আৰম্ভ কৰক', icon: PlayCircle, label: 'ছৱি মনত ৰখা খেল' },
           { text: 'মগজু সজীৱ ৰখাৰ বাবে তিনিটা পৰামৰ্শ দিয়ক', icon: Sparkles, label: 'জ্ঞান পৰামৰ্শ' },
@@ -91,6 +141,7 @@ export function VoiceAssistantWidget() {
         ];
       case 'ne':
         return [
+          { text: 'आज के बार, कति गते र कति बज्यो?', icon: Clock, label: 'मिति र समय' },
           { text: 'मलाई एउटा शान्त परम्परागत कथा सुनाउनुहोस्', icon: BookOpen, label: 'शान्त कथा' },
           { text: 'तस्बिर स्मरण अभ्यास सुरु गर्नुहोस्', icon: PlayCircle, label: 'तस्बिर अभ्यास' },
           { text: 'मानसिक स्वास्थ्यका लागि ३ वटा उपयोगी सुझाव दिनुहोस्', icon: Sparkles, label: 'सुझावहरू' },
@@ -140,6 +191,7 @@ export function VoiceAssistantWidget() {
         ];
       default:
         return [
+          { text: "What is today's date, day, and time in India?", icon: Clock, label: 'Time & Date (IST)' },
           { text: 'Tell me a peaceful folk story from Northeast India', icon: BookOpen, label: 'Peaceful Folk Story' },
           { text: 'Give me 3 gentle tips to keep my memory sharp today', icon: Sparkles, label: 'Daily Brain Wellness' },
           { text: 'Start Picture Recall game', icon: PlayCircle, label: 'Play Picture Recall' },
@@ -239,40 +291,80 @@ export function VoiceAssistantWidget() {
       {isAssistantOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="flex h-[92vh] sm:h-[700px] w-full max-w-2xl flex-col rounded-t-3xl sm:rounded-3xl border border-teal-100 bg-white shadow-2xl overflow-hidden">
-            {/* Modal Header — Gemini / ChatGPT Styled */}
-            <div className="flex items-center justify-between border-b border-teal-800/20 bg-gradient-to-r from-teal-900 via-teal-800 to-teal-900 px-5 sm:px-6 py-4 text-white">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white shadow-inner">
-                  <Sparkles className="h-6 w-6 text-amber-300 animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-bold">Recallia AI Companion</h3>
-                    <span className="rounded-full bg-teal-500/30 px-2 py-0.5 text-[11px] font-semibold text-teal-100 border border-teal-400/40 flex items-center gap-1">
-                      <span>✨ Gemini 3.7</span>
-                    </span>
+            {/* Modal Header — Elder-Friendly with Large Back Button & Logo Button */}
+            <div className="flex items-center justify-between border-b border-teal-800/30 bg-gradient-to-r from-teal-900 via-teal-800 to-teal-900 px-3.5 sm:px-6 py-3 sm:py-3.5 text-white">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Large Elder-Friendly Back Button */}
+                <button
+                  onClick={() => {
+                    stopSpeaking();
+                    stopVoiceAssistantListening();
+                    setAssistantOpen(false);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white/20 hover:bg-white/30 active:scale-95 px-3.5 sm:px-4 py-2.5 text-base sm:text-lg font-bold text-white border border-white/30 shadow-sm transition-all focus:outline-none focus:ring-4 focus:ring-teal-300"
+                  title="Go Back"
+                  aria-label="Go Back"
+                >
+                  <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
+                  <span>Back</span>
+                </button>
+
+                {/* Large Logo Button */}
+                <button
+                  onClick={() => {
+                    stopSpeaking();
+                    stopVoiceAssistantListening();
+                    setAssistantOpen(false);
+                  }}
+                  className="flex items-center gap-2.5 rounded-2xl px-2.5 sm:px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/15 transition-all text-left group"
+                  title="Recallia Logo - Tap to close"
+                  aria-label="Recallia Logo"
+                >
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-teal-500 shadow-md group-hover:bg-teal-400 transition-colors shrink-0">
+                    <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-white" strokeWidth={2.5} />
                   </div>
-                  <p className="text-xs text-teal-200/90 font-medium">
-                    Voice & Text Assistant · Multilingual North-Eastern India
-                  </p>
-                </div>
+                  <div className="hidden min-[480px]:block">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-display text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
+                        Recallia
+                      </span>
+                      <span className="rounded-full bg-teal-400/30 px-1.5 py-0.5 text-[10px] font-semibold text-teal-100 border border-teal-300/40">
+                        AI
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-teal-200 leading-none">
+                      Voice &amp; Text Assistant
+                    </p>
+                  </div>
+                </button>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {/* Voice Guide Mute/Unmute toggle */}
                 <button
                   onClick={() => {
                     if (isSpeaking) stopSpeaking();
                     setVoiceGuideEnabled(!isVoiceGuideEnabled);
                   }}
-                  className={`rounded-xl p-2 transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs sm:text-sm font-semibold transition-colors ${
                     isVoiceGuideEnabled
                       ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'bg-red-500/30 text-red-200 hover:bg-red-500/40'
+                      : 'bg-red-500/30 text-red-100 hover:bg-red-500/40'
                   }`}
                   title={isVoiceGuideEnabled ? 'Mute AI Voice' : 'Unmute AI Voice'}
+                  aria-label={isVoiceGuideEnabled ? 'Mute AI Voice' : 'Unmute AI Voice'}
                 >
-                  {isVoiceGuideEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  {isVoiceGuideEnabled ? (
+                    <>
+                      <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="hidden md:inline">Sound</span>
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="hidden md:inline">Muted</span>
+                    </>
+                  )}
                 </button>
 
                 {/* Close Button */}
@@ -282,10 +374,11 @@ export function VoiceAssistantWidget() {
                     stopVoiceAssistantListening();
                     setAssistantOpen(false);
                   }}
-                  className="rounded-xl p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-colors"
                   title="Close Assistant"
+                  aria-label="Close Assistant"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
                 </button>
               </div>
             </div>
@@ -316,6 +409,18 @@ export function VoiceAssistantWidget() {
                     <RotateCcw className="h-3 w-3" /> Clear Chat
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Live Indian Standard Time (IST) & Date Bar for Elder Orientation */}
+            <div className="flex items-center justify-between border-b border-teal-100 bg-teal-50/80 px-5 sm:px-6 py-1.5 text-xs text-teal-900">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Clock className="h-3.5 w-3.5 text-teal-700" />
+                <span>India (IST): <strong>{istTimeStr}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5 text-teal-800 font-medium">
+                <Calendar className="h-3.5 w-3.5 text-teal-600" />
+                <span>{istDateStr}</span>
               </div>
             </div>
 
@@ -371,33 +476,86 @@ export function VoiceAssistantWidget() {
                         </div>
                       )}
                       <div
-                        className={`max-w-[85%] rounded-3xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${
+                        className={`max-w-[90%] sm:max-w-[85%] rounded-3xl px-5 sm:px-6 py-4 shadow-sm ${
                           isUser
                             ? 'bg-teal-700 text-white rounded-br-sm'
-                            : 'bg-white text-slate-800 border border-teal-100 rounded-bl-sm shadow-soft'
+                            : 'bg-white text-slate-900 border border-teal-100/90 rounded-bl-sm shadow-soft'
                         }`}
                       >
-                        <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                        <div className={`mt-2.5 pt-2 border-t flex items-center justify-between gap-3 text-[11px] ${
-                          isUser ? 'border-teal-600/60 text-teal-200' : 'border-slate-100 text-slate-400'
+                        {isUser ? (
+                          <p className="text-base sm:text-lg whitespace-pre-wrap leading-relaxed text-white font-medium">
+                            {msg.text}
+                          </p>
+                        ) : (
+                          <div className="elder-markdown-content text-base sm:text-lg leading-relaxed text-slate-900 font-normal">
+                            <Markdown
+                              components={{
+                                p: ({ children }) => (
+                                  <p className="mb-3.5 last:mb-0 leading-relaxed text-slate-900">
+                                    {children}
+                                  </p>
+                                ),
+                                strong: ({ children }) => (
+                                  <strong className="font-bold text-teal-950">
+                                    {children}
+                                  </strong>
+                                ),
+                                ul: ({ children }) => (
+                                  <ul className="my-3 space-y-2.5 list-disc pl-5 marker:text-teal-600 text-slate-800">
+                                    {children}
+                                  </ul>
+                                ),
+                                ol: ({ children }) => (
+                                  <ol className="my-3 space-y-2.5 list-decimal pl-5 marker:text-teal-700 font-medium text-slate-800">
+                                    {children}
+                                  </ol>
+                                ),
+                                li: ({ children }) => (
+                                  <li className="leading-relaxed pl-1">
+                                    {children}
+                                  </li>
+                                ),
+                                h1: ({ children }) => (
+                                  <h1 className="text-xl font-bold text-teal-950 mt-2 mb-2">
+                                    {children}
+                                  </h1>
+                                ),
+                                h2: ({ children }) => (
+                                  <h2 className="text-lg font-bold text-teal-950 mt-2 mb-1.5">
+                                    {children}
+                                  </h2>
+                                ),
+                                h3: ({ children }) => (
+                                  <h3 className="text-base font-bold text-teal-950 mt-1.5 mb-1">
+                                    {children}
+                                  </h3>
+                                ),
+                              }}
+                            >
+                              {msg.text}
+                            </Markdown>
+                          </div>
+                        )}
+                        <div className={`mt-3 pt-2.5 border-t flex items-center justify-between gap-3 text-xs ${
+                          isUser ? 'border-teal-600/60 text-teal-200' : 'border-slate-100 text-slate-500'
                         }`}>
-                          <span>{msg.timestamp}</span>
+                          <span className="font-medium">{msg.timestamp}</span>
 
                           {!isUser && (
                             <div className="flex items-center gap-2">
                               {/* Copy response */}
                               <button
                                 onClick={() => handleCopy(msg.text, msg.id)}
-                                className="inline-flex items-center gap-1 rounded-md bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors min-h-[32px]"
                                 title="Copy answer"
                               >
                                 {copiedId === msg.id ? (
                                   <>
-                                    <Check className="h-3 w-3 text-teal-600" /> Copied
+                                    <Check className="h-3.5 w-3.5 text-teal-600" /> Copied
                                   </>
                                 ) : (
                                   <>
-                                    <Copy className="h-3 w-3" /> Copy
+                                    <Copy className="h-3.5 w-3.5" /> Copy
                                   </>
                                 )}
                               </button>
@@ -405,10 +563,10 @@ export function VoiceAssistantWidget() {
                               {/* Replay voice readout */}
                               <button
                                 onClick={() => speak(msg.text, msg.language)}
-                                className="inline-flex items-center gap-1 rounded-md bg-teal-50 hover:bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-900 transition-colors min-h-[32px]"
                                 title="Read answer aloud"
                               >
-                                <Volume2 className="h-3 w-3" /> Listen
+                                <Volume2 className="h-3.5 w-3.5 text-teal-700" /> Listen Aloud
                               </button>
                             </div>
                           )}
@@ -487,7 +645,7 @@ export function VoiceAssistantWidget() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {/* Microphone Toggle Button */}
                 <button
                   type="button"
@@ -498,14 +656,14 @@ export function VoiceAssistantWidget() {
                       startVoiceAssistantListening();
                     }
                   }}
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-bold transition-all shadow-md active:scale-95 ${
+                  className={`flex h-13 w-13 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl font-bold transition-all shadow-md active:scale-95 ${
                     isListening
                       ? 'bg-red-500 text-white ring-4 ring-red-200 animate-pulse'
                       : 'bg-teal-50 text-teal-900 border border-teal-200 hover:bg-teal-100 hover:border-teal-300'
                   }`}
                   title={isListening ? 'Stop Listening' : 'Tap & Speak in your language'}
                 >
-                  {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5 text-teal-700" />}
+                  {isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6 text-teal-700" />}
                 </button>
 
                 {/* Text Form */}
@@ -516,15 +674,15 @@ export function VoiceAssistantWidget() {
                     onChange={(e) => setTextInput(e.target.value)}
                     placeholder={emptyState.placeholder}
                     disabled={isProcessingAI || isListening}
-                    className="h-12 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 disabled:opacity-50"
+                    className="h-13 sm:h-14 flex-1 rounded-2xl border border-slate-300 bg-slate-50 px-4 sm:px-5 text-base sm:text-lg text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={!textInput.trim() || isProcessingAI}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-white font-bold transition-all hover:bg-teal-800 disabled:opacity-40 disabled:hover:bg-teal-700 active:scale-95"
+                    className="flex h-13 w-13 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-white font-bold transition-all hover:bg-teal-800 disabled:opacity-40 disabled:hover:bg-teal-700 active:scale-95 shadow-sm"
                     title="Send message"
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5" />
                   </button>
                 </form>
               </div>

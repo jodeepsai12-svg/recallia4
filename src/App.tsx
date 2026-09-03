@@ -4,6 +4,7 @@ import { I18nProvider, useI18n } from '@/i18n';
 import { VoiceProvider, useVoice } from '@/context/VoiceContext';
 import { LanguageOnboarding } from '@/components/LanguageOnboarding';
 import { LanguageSettingsModal } from '@/components/LanguageSettingsModal';
+import { PeacefulBreathingModal } from '@/components/PeacefulBreathingModal';
 import { VoiceAssistantWidget } from '@/components/VoiceAssistantWidget';
 import { LandingPage } from '@/pages/LandingPage';
 import { AuthPage } from '@/pages/AuthPage';
@@ -21,12 +22,20 @@ function AppContent() {
   const [view, setView] = useState<View>('landing');
   const [activeGame, setActiveGame] = useState<GameType | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
-  // Bind voice actions trigger handler so voice assistant commands can navigate
+  // Bind voice actions trigger handler so voice assistant commands can autonomously navigate
   useEffect(() => {
     setActionTriggerHandler((action: string) => {
-      if (action === 'play_picture_recall') {
+      if (action === 'play_recommended_game') {
+        // Autonomously launch the recommended game
+        // Picture Recall is the premier, gold-standard visual memory activity for elders
+        speak('Opening your recommended game: Picture Recall, designed for calm visual focus.');
+        announce('start_picture_recall');
+        setActiveGame('picture_recall');
+        setView('game');
+      } else if (action === 'play_picture_recall') {
         announce('start_picture_recall');
         setActiveGame('picture_recall');
         setView('game');
@@ -52,13 +61,15 @@ function AppContent() {
       } else if (action === 'open_settings') {
         announce('open_settings');
         setShowSettingsModal(true);
+      } else if (action === 'start_breathing') {
+        setShowBreathingModal(true);
       } else if (action === 'back_to_dashboard') {
         announce('back_to_dashboard');
         setActiveGame(null);
-        setView('dashboard');
+        setView(user ? 'dashboard' : 'landing');
       }
     });
-  }, [announce, setActionTriggerHandler, speak]);
+  }, [announce, setActionTriggerHandler, speak, user]);
 
   // If user hasn't selected language yet, show full-screen onboarding screen
   if (!hasSelectedLanguage && !onboardingCompleted) {
@@ -73,54 +84,64 @@ function AppContent() {
     );
   }
 
-  // If signed in, show dashboard, caregiver portal, or game
+  // Active Game View (accessible for both signed-in and guest elders)
+  if (view === 'game' && activeGame) {
+    return (
+      <>
+        <GamePlayer
+          gameType={activeGame}
+          onExit={() => {
+            announce('back_to_dashboard');
+            setActiveGame(null);
+            setView(user ? 'dashboard' : 'landing');
+          }}
+          onOpenSettings={() => {
+            announce('open_settings');
+            setShowSettingsModal(true);
+          }}
+        />
+        <LanguageSettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+        />
+        <PeacefulBreathingModal
+          isOpen={showBreathingModal}
+          onClose={() => setShowBreathingModal(false)}
+        />
+        <VoiceAssistantWidget />
+      </>
+    );
+  }
+
+  // Caregiver Portal View (accessible for both signed-in and guest elders)
+  if (view === 'caregiver') {
+    return (
+      <>
+        <CaregiverDashboard
+          onBackToActivities={() => {
+            announce('back_to_dashboard');
+            setView(user ? 'dashboard' : 'landing');
+          }}
+          onOpenSettings={() => {
+            announce('open_settings');
+            setShowSettingsModal(true);
+          }}
+        />
+        <LanguageSettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+        />
+        <PeacefulBreathingModal
+          isOpen={showBreathingModal}
+          onClose={() => setShowBreathingModal(false)}
+        />
+        <VoiceAssistantWidget />
+      </>
+    );
+  }
+
+  // If signed in, show dashboard
   if (user) {
-    if (view === 'game' && activeGame) {
-      return (
-        <>
-          <GamePlayer
-            gameType={activeGame}
-            onExit={() => {
-              announce('back_to_dashboard');
-              setActiveGame(null);
-              setView('dashboard');
-            }}
-            onOpenSettings={() => {
-              announce('open_settings');
-              setShowSettingsModal(true);
-            }}
-          />
-          <LanguageSettingsModal
-            isOpen={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-          />
-          <VoiceAssistantWidget />
-        </>
-      );
-    }
-
-    if (view === 'caregiver') {
-      return (
-        <>
-          <CaregiverDashboard
-            onBackToActivities={() => {
-              announce('back_to_dashboard');
-              setView('dashboard');
-            }}
-            onOpenSettings={() => {
-              announce('open_settings');
-              setShowSettingsModal(true);
-            }}
-          />
-          <LanguageSettingsModal
-            isOpen={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-          />
-          <VoiceAssistantWidget />
-        </>
-      );
-    }
-
     return (
       <>
         <Dashboard
@@ -145,6 +166,10 @@ function AppContent() {
         <LanguageSettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
+        />
+        <PeacefulBreathingModal
+          isOpen={showBreathingModal}
+          onClose={() => setShowBreathingModal(false)}
         />
         <VoiceAssistantWidget />
       </>
@@ -198,6 +223,10 @@ function AppContent() {
       <LanguageSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
+      />
+      <PeacefulBreathingModal
+        isOpen={showBreathingModal}
+        onClose={() => setShowBreathingModal(false)}
       />
       <VoiceAssistantWidget />
     </>
