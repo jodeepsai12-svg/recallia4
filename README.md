@@ -1,3 +1,3 @@
-# recallia4
+# Recallia
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-brsztb1u)
+Gentle daily cognitive activities for elderly mental wellness.
