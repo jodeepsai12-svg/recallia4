@@ -1,4 +1,4 @@
-import type { GameSession, GameType } from '@/types';
+import type { GameSession, GameType, CognitiveDeclineAlert } from '@/types';
 
 export interface LinkedParticipant {
   id: string;
@@ -377,5 +377,239 @@ export function computeCaregiverMetrics(sessions: GameSession[]) {
     categories,
     dailyTrends,
     insights,
+  };
+}
+
+// Sample sessions exhibiting a progressive cognitive decline pattern for verification and demonstration
+export const SAMPLE_DECLINING_SESSIONS: GameSession[] = [
+  // Older baseline sessions (High, stable performance: ~93% accuracy, ~3.3s response time)
+  {
+    id: 'decline_base_1',
+    user_id: 'participant_mary',
+    game_type: 'picture_recall',
+    game_category: 'visual_recall',
+    score: 380,
+    accuracy: 95,
+    mistakes: 0,
+    response_time_ms: 3100,
+    difficulty: 'moderate',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 168).toISOString(), // 7 days ago
+  },
+  {
+    id: 'decline_base_2',
+    user_id: 'participant_mary',
+    game_type: 'sequence_memory',
+    game_category: 'sequential_memory',
+    score: 360,
+    accuracy: 92,
+    mistakes: 1,
+    response_time_ms: 3400,
+    difficulty: 'gentle',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 144).toISOString(), // 6 days ago
+  },
+  {
+    id: 'decline_base_3',
+    user_id: 'participant_mary',
+    game_type: 'story_recall',
+    game_category: 'reading_comprehension',
+    score: 390,
+    accuracy: 96,
+    mistakes: 0,
+    response_time_ms: 3600,
+    difficulty: 'moderate',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(), // 5 days ago
+  },
+
+  // Progressive decline sequence (Consecutive drops: 80% -> 72% -> 62% -> 55%, response time slowing 4.4s -> 5.8s -> 7.1s -> 8.4s)
+  {
+    id: 'decline_drop_1',
+    user_id: 'participant_mary',
+    game_type: 'object_association',
+    game_category: 'verbal_association',
+    score: 310,
+    accuracy: 80,
+    mistakes: 2,
+    response_time_ms: 4400,
+    difficulty: 'gentle',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
+  },
+  {
+    id: 'decline_drop_2',
+    user_id: 'participant_mary',
+    game_type: 'picture_recall',
+    game_category: 'visual_recall',
+    score: 260,
+    accuracy: 72,
+    mistakes: 3,
+    response_time_ms: 5800,
+    difficulty: 'gentle',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
+  },
+  {
+    id: 'decline_drop_3',
+    user_id: 'participant_mary',
+    game_type: 'sequence_memory',
+    game_category: 'sequential_memory',
+    score: 210,
+    accuracy: 62,
+    mistakes: 4,
+    response_time_ms: 7100,
+    difficulty: 'gentle',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+  },
+  {
+    id: 'decline_drop_4',
+    user_id: 'participant_mary',
+    game_type: 'story_recall',
+    game_category: 'reading_comprehension',
+    score: 180,
+    accuracy: 55,
+    mistakes: 5,
+    response_time_ms: 8400,
+    difficulty: 'gentle',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
+  },
+];
+
+/**
+ * Evaluates game sessions to detect any progressive cognitive decline trend.
+ * Triggers an alarm when accuracy exhibits sustained drops, reaction time slows significantly,
+ * or multiple consecutive sessions fall below the participant's baseline.
+ */
+export function detectProgressiveDecline(
+  sessions: GameSession[],
+  participantName = 'Participant',
+  userId = 'participant_mary'
+): CognitiveDeclineAlert | null {
+  if (!sessions || sessions.length < 3) {
+    return null;
+  }
+
+  // Sort chronological: oldest to newest
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  const totalCount = sorted.length;
+  // Recent window: the latest 3 to 4 sessions
+  const recentWindowSize = Math.min(4, Math.max(3, Math.floor(totalCount / 2)));
+  const recentSessions = sorted.slice(totalCount - recentWindowSize);
+  const baselineSessions = sorted.slice(0, totalCount - recentWindowSize);
+
+  // If no baseline sessions (e.g. only 3 sessions total), use first session as baseline
+  const effectiveBaseline = baselineSessions.length > 0 ? baselineSessions : [sorted[0]];
+
+  const baselineAccuracy = Math.round(
+    effectiveBaseline.reduce((sum, s) => sum + (s.accuracy || 0), 0) / effectiveBaseline.length
+  );
+  const recentAccuracy = Math.round(
+    recentSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / recentSessions.length
+  );
+
+  const baselineResponseMs = Math.round(
+    effectiveBaseline.reduce((sum, s) => sum + (s.response_time_ms || 0), 0) / effectiveBaseline.length
+  );
+  const currentResponseMs = Math.round(
+    recentSessions.reduce((sum, s) => sum + (s.response_time_ms || 0), 0) / recentSessions.length
+  );
+
+  const declinePercentage = Math.max(0, baselineAccuracy - recentAccuracy);
+
+  // Check consecutive downward drops across recent sessions
+  let consecutiveDropCount = 0;
+  for (let i = recentSessions.length - 1; i > 0; i--) {
+    if (recentSessions[i].accuracy <= recentSessions[i - 1].accuracy) {
+      consecutiveDropCount++;
+    } else {
+      break;
+    }
+  }
+
+  // Calculate latency increase
+  const latencyIncreasePercent =
+    baselineResponseMs > 0
+      ? Math.round(((currentResponseMs - baselineResponseMs) / baselineResponseMs) * 100)
+      : 0;
+
+  // Identify affected cognitive domains
+  const domainNameMap: Record<GameType, string> = {
+    picture_recall: 'Visual Recall',
+    sequence_memory: 'Sequential Working Memory',
+    object_association: 'Verbal Association',
+    story_recall: 'Narrative Story Retention',
+    my_memories: 'Personal Memory Recall',
+  };
+
+  const affectedDomainsSet = new Set<string>();
+  recentSessions.forEach((s) => {
+    if (s.accuracy < 75 || s.mistakes >= 2) {
+      affectedDomainsSet.add(domainNameMap[s.game_type] || s.game_type);
+    }
+  });
+  const affectedAreas = Array.from(affectedDomainsSet);
+  if (affectedAreas.length === 0) {
+    affectedAreas.push('General Cognitive Recall');
+  }
+
+  // Determine if criteria for progressive decline are met:
+  // 1. Decline percentage >= 15%
+  // 2. OR 3+ consecutive downward drops with decline >= 10%
+  // 3. OR recent accuracy <= 65% when baseline was >= 80%
+  // 4. OR decline >= 12% combined with >= 35% response time hesitation
+  const isDeclineTriggered =
+    declinePercentage >= 15 ||
+    (consecutiveDropCount >= 2 && declinePercentage >= 10) ||
+    (recentAccuracy <= 68 && baselineAccuracy >= 80) ||
+    (declinePercentage >= 12 && latencyIncreasePercent >= 35);
+
+  if (!isDeclineTriggered) {
+    return null;
+  }
+
+  // Determine alarm severity level
+  let alarmLevel: 'critical' | 'warning' | 'moderate' = 'moderate';
+  if (declinePercentage >= 25 || recentAccuracy < 60 || (declinePercentage >= 20 && latencyIncreasePercent >= 50)) {
+    alarmLevel = 'critical';
+  } else if (declinePercentage >= 16 || latencyIncreasePercent >= 40) {
+    alarmLevel = 'warning';
+  }
+
+  const baselineTimeSec = (baselineResponseMs / 1000).toFixed(1);
+  const currentTimeSec = (currentResponseMs / 1000).toFixed(1);
+  const latencyDiffSec = ((currentResponseMs - baselineResponseMs) / 1000).toFixed(1);
+
+  const title = `🚨 Progressive Cognitive Decline Alarm: ${participantName}`;
+  const description =
+    `Progressive downward trajectory detected across the last ${recentSessions.length} cognitive activity sessions. ` +
+    `Average accuracy has fallen by ${declinePercentage}% (from an established baseline of ${baselineAccuracy}% down to ${recentAccuracy}%). ` +
+    `Task response latency slowed by +${latencyDiffSec}s (${baselineTimeSec}s → ${currentTimeSec}s, +${latencyIncreasePercent}% hesitation), ` +
+    `with marked difficulty concentrated in ${affectedAreas.join(', ')}. ` +
+    `Immediate caregiver check-in and clinical evaluation are strongly advised.`;
+
+  const recommendations = [
+    'Conduct an immediate in-person or telephone wellness check to evaluate alertness and orientation.',
+    'Screen for acute reversible contributors: dehydration, urinary tract infections (UTI), recent medication changes, or disrupted sleep.',
+    'Temporarily switch daily exercises to "Gentle" difficulty mode to avoid cognitive fatigue or frustration.',
+    'Export or print the Caregiver Summary Report and share the documented decline trajectory with the attending physician or neurologist.',
+  ];
+
+  return {
+    id: `decline_alert_${userId}_${Date.now()}`,
+    user_id: userId,
+    participant_name: participantName,
+    alarm_level: alarmLevel,
+    title,
+    description,
+    decline_percentage: declinePercentage,
+    baseline_accuracy: baselineAccuracy,
+    current_accuracy: recentAccuracy,
+    baseline_response_time_ms: baselineResponseMs,
+    current_response_time_ms: currentResponseMs,
+    affected_areas: affectedAreas,
+    consecutive_drop_count: consecutiveDropCount + 1,
+    recommendations,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    siren_active: true,
   };
 }

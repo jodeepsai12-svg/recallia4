@@ -21,8 +21,10 @@ import type {
   PersonalMemoryConsent,
   GameSession,
   EmergencyAlert,
+  CognitiveDeclineAlert,
 } from '@/types';
 import { DEFAULT_PERSONAL_MEMORIES } from '@/lib/memoriesService';
+import { detectProgressiveDecline } from '@/lib/caregiverData';
 
 /**
  * Utility to strip undefined values from Firestore write payloads
@@ -523,6 +525,38 @@ export async function saveGameSession(session: GameSession): Promise<void> {
   } catch (error) {
     console.warn('Error saving game session to Firestore (cached locally):', error);
   }
+
+  // Automatic immediate progressive decline detection
+  try {
+    const key = `recallia_sessions_${session.user_id || 'default'}`;
+    const raw = localStorage.getItem(key);
+    const existing: GameSession[] = raw ? JSON.parse(raw) : [];
+    const allSessions = [sessionWithId, ...existing.filter((s) => s.id !== sessionId)];
+    
+    // Retrieve participant name from local profile or fallback
+    let participantName = 'Mary Jenkins';
+    try {
+      const p = localStorage.getItem(`recallia_profile_${session.user_id}`);
+      if (p) {
+        const parsed = JSON.parse(p);
+        if (parsed.name) participantName = parsed.name;
+      }
+    } catch {
+      // ignore
+    }
+
+    const declineAlert = detectProgressiveDecline(
+      allSessions,
+      participantName,
+      session.user_id || 'participant_mary'
+    );
+
+    if (declineAlert) {
+      await saveCognitiveDeclineAlert(declineAlert);
+    }
+  } catch (err) {
+    console.warn('Progressive decline automated check warning:', err);
+  }
 }
 
 export async function fetchGameSessions(userId: string): Promise<GameSession[]> {
@@ -605,5 +639,146 @@ export async function resolveEmergencyAlert(alertId: string, resolvedBy: string)
   } catch (error) {
     console.error('Error resolving emergency alert:', error);
     throw error;
+  }
+}
+
+// ==========================================
+// PROGRESSIVE COGNITIVE DECLINE ALERTS (SIREN)
+// ==========================================
+
+export async function saveCognitiveDeclineAlert(alert: CognitiveDeclineAlert): Promise<void> {
+  const alertId = alert.id || `decline_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const fullAlert: CognitiveDeclineAlert = {
+    ...alert,
+    id: alertId,
+    created_at: alert.created_at || new Date().toISOString(),
+    siren_active: alert.siren_active ?? true,
+    status: alert.status || 'active',
+  };
+
+  // Local storage caching for immediate local responsiveness
+  try {
+    const key = `recallia_decline_alerts_${alert.user_id || 'default'}`;
+    const raw = localStorage.getItem(key);
+    const existing: CognitiveDeclineAlert[] = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(
+      key,
+      JSON.stringify([fullAlert, ...existing.filter((a) => a.id !== alertId)])
+    );
+
+    // Also cache under global active decline key for caregiver dashboard
+    localStorage.setItem('recallia_active_decline_alert', JSON.stringify(fullAlert));
+  } catch {
+    // ignore
+  }
+
+  try {
+    const alertDocRef = doc(db, 'cognitive_decline_alerts', alertId);
+    await setDoc(alertDocRef, cleanFirestoreData(fullAlert));
+  } catch (err) {
+    console.warn('Error saving cognitive decline alert to Firestore (cached locally):', err);
+  }
+}
+
+export async function fetchCognitiveDeclineAlerts(userId?: string): Promise<CognitiveDeclineAlert[]> {
+  try {
+    const alertsRef = collection(db, 'cognitive_decline_alerts');
+    let q = query(alertsRef, orderBy('created_at', 'desc'));
+    if (userId) {
+      q = query(alertsRef, where('user_id', '==', userId), orderBy('created_at', 'desc'));
+    }
+    const snap = await getDocs(q);
+    const list: CognitiveDeclineAlert[] = [];
+    snap.forEach((d) => list.push(d.data() as CognitiveDeclineAlert));
+    if (list.length > 0) {
+      return list;
+    }
+  } catch (error) {
+    console.warn('Error fetching cognitive decline alerts from Firestore, checking local cache:', error);
+  }
+
+  // Check local cache fallback
+  try {
+    const key = `recallia_decline_alerts_${userId || 'default'}`;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      return JSON.parse(raw) as CognitiveDeclineAlert[];
+    }
+    const globalActive = localStorage.getItem('recallia_active_decline_alert');
+    if (globalActive) {
+      return [JSON.parse(globalActive) as CognitiveDeclineAlert];
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
+}
+
+export async function acknowledgeCognitiveDeclineAlert(alertId: string): Promise<void> {
+  try {
+    const alertRef = doc(db, 'cognitive_decline_alerts', alertId);
+    await updateDoc(alertRef, {
+      status: 'acknowledged',
+      siren_active: false,
+    });
+  } catch (err) {
+    console.warn('Error updating cognitive decline alert in Firestore:', err);
+  }
+
+  // Update local storage
+  try {
+    const globalActive = localStorage.getItem('recallia_active_decline_alert');
+    if (globalActive) {
+      const parsed = JSON.parse(globalActive) as CognitiveDeclineAlert;
+      if (parsed.id === alertId) {
+        localStorage.setItem(
+          'recallia_active_decline_alert',
+          JSON.stringify({ ...parsed, status: 'acknowledged', siren_active: false })
+        );
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export async function resolveCognitiveDeclineAlert(
+  alertId: string,
+  resolvedBy: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    const alertRef = doc(db, 'cognitive_decline_alerts', alertId);
+    await updateDoc(alertRef, {
+      status: 'resolved',
+      siren_active: false,
+      resolved_at: now,
+      resolved_by: resolvedBy,
+    });
+  } catch (err) {
+    console.warn('Error resolving cognitive decline alert in Firestore:', err);
+  }
+
+  // Update local storage
+  try {
+    const globalActive = localStorage.getItem('recallia_active_decline_alert');
+    if (globalActive) {
+      const parsed = JSON.parse(globalActive) as CognitiveDeclineAlert;
+      if (parsed.id === alertId) {
+        localStorage.setItem(
+          'recallia_active_decline_alert',
+          JSON.stringify({
+            ...parsed,
+            status: 'resolved',
+            siren_active: false,
+            resolved_at: now,
+            resolved_by: resolvedBy,
+          })
+        );
+      }
+    }
+  } catch {
+    // ignore
   }
 }

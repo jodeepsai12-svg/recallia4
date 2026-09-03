@@ -30,6 +30,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Cognitive Decline Alerts (Siren alarms)
+    match /cognitive_decline_alerts/{alertId} {
+      allow read, write: if true;
+    }
+
     // Public catalog activities
     match /activities/{activityId} {
       allow read: if true;

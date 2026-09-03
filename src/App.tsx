@@ -5,7 +5,11 @@ import { VoiceProvider, useVoice } from '@/context/VoiceContext';
 import { LanguageOnboarding } from '@/components/LanguageOnboarding';
 import { LanguageSettingsModal } from '@/components/LanguageSettingsModal';
 import { PeacefulBreathingModal } from '@/components/PeacefulBreathingModal';
+import { EmergencyModal } from '@/components/EmergencyModal';
+import { HackathonDemoBar } from '@/components/HackathonDemoBar';
 import { VoiceAssistantWidget } from '@/components/VoiceAssistantWidget';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { LandingPage } from '@/pages/LandingPage';
 import { AuthPage } from '@/pages/AuthPage';
 import { Dashboard } from '@/pages/Dashboard';
@@ -16,21 +20,25 @@ import type { GameType } from '@/types';
 type View = 'landing' | 'signin' | 'signup' | 'dashboard' | 'game' | 'caregiver';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, startOfflineGuestSession } = useAuth();
   const { hasSelectedLanguage } = useI18n();
   const { setActionTriggerHandler, announce, speak } = useVoice();
   const [view, setView] = useState<View>('landing');
   const [activeGame, setActiveGame] = useState<GameType | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showBreathingModal, setShowBreathingModal] = useState(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showCaregiverReportModal, setShowCaregiverReportModal] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [isDeclineAlarmActive, setIsDeclineAlarmActive] = useState<boolean>(
+    () => localStorage.getItem('recallia_simulating_decline') === 'true'
+  );
 
   // Bind voice actions trigger handler so voice assistant commands can autonomously navigate
   useEffect(() => {
     setActionTriggerHandler((action: string) => {
       if (action === 'play_recommended_game') {
         // Autonomously launch the recommended game
-        // Picture Recall is the premier, gold-standard visual memory activity for elders
         speak('Opening your recommended game: Picture Recall, designed for calm visual focus.');
         announce('start_picture_recall');
         setActiveGame('picture_recall');
@@ -84,10 +92,10 @@ function AppContent() {
     );
   }
 
-  // Active Game View (accessible for both signed-in and guest elders)
-  if (view === 'game' && activeGame) {
-    return (
-      <>
+  const renderContent = () => {
+    // Active Game View (accessible for both signed-in and guest elders)
+    if (view === 'game' && activeGame) {
+      return (
         <GamePlayer
           gameType={activeGame}
           onExit={() => {
@@ -100,23 +108,12 @@ function AppContent() {
             setShowSettingsModal(true);
           }}
         />
-        <LanguageSettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-        />
-        <PeacefulBreathingModal
-          isOpen={showBreathingModal}
-          onClose={() => setShowBreathingModal(false)}
-        />
-        <VoiceAssistantWidget />
-      </>
-    );
-  }
+      );
+    }
 
-  // Caregiver Portal View (accessible for both signed-in and guest elders)
-  if (view === 'caregiver') {
-    return (
-      <>
+    // Caregiver Portal View (accessible for both signed-in and guest elders)
+    if (view === 'caregiver') {
+      return (
         <CaregiverDashboard
           onBackToActivities={() => {
             announce('back_to_dashboard');
@@ -126,24 +123,17 @@ function AppContent() {
             announce('open_settings');
             setShowSettingsModal(true);
           }}
+          isSimulatingDeclineProp={isDeclineAlarmActive}
+          onDeclineSimulationChange={(active) => setIsDeclineAlarmActive(active)}
+          showReportModalProp={showCaregiverReportModal}
+          onCloseReportModalProp={() => setShowCaregiverReportModal(false)}
         />
-        <LanguageSettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-        />
-        <PeacefulBreathingModal
-          isOpen={showBreathingModal}
-          onClose={() => setShowBreathingModal(false)}
-        />
-        <VoiceAssistantWidget />
-      </>
-    );
-  }
+      );
+    }
 
-  // If signed in, show dashboard
-  if (user) {
-    return (
-      <>
+    // If signed in or guest session active, show dashboard
+    if (user) {
+      return (
         <Dashboard
           onPlayGame={(gameType) => {
             if (gameType === 'picture_recall') announce('start_picture_recall');
@@ -163,23 +153,12 @@ function AppContent() {
             setView('caregiver');
           }}
         />
-        <LanguageSettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-        />
-        <PeacefulBreathingModal
-          isOpen={showBreathingModal}
-          onClose={() => setShowBreathingModal(false)}
-        />
-        <VoiceAssistantWidget />
-      </>
-    );
-  }
+      );
+    }
 
-  // Not signed in — route by view state
-  if (view === 'signin' || view === 'signup') {
-    return (
-      <>
+    // Not signed in — route by view state
+    if (view === 'signin' || view === 'signup') {
+      return (
         <AuthPage
           mode={view}
           onBack={() => {
@@ -196,17 +175,10 @@ function AppContent() {
             setShowSettingsModal(true);
           }}
         />
-        <LanguageSettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-        />
-        <VoiceAssistantWidget />
-      </>
-    );
-  }
+      );
+    }
 
-  return (
-    <>
+    return (
       <LandingPage
         onGetStarted={() => {
           announce('welcome_home');
@@ -215,11 +187,25 @@ function AppContent() {
         onSignIn={() => {
           setView('signin');
         }}
+        onStartOffline={async () => {
+          speak('Welcome to Recallia. Starting offline exercises.');
+          await startOfflineGuestSession('Mary Vance');
+          announce('welcome_home');
+          setView('dashboard');
+        }}
         onOpenSettings={() => {
           announce('open_settings');
           setShowSettingsModal(true);
         }}
       />
+    );
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-sand-50">
+      <OfflineBanner />
+      <PWAInstallBanner />
+      <main className="flex-1">{renderContent()}</main>
       <LanguageSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
@@ -228,8 +214,53 @@ function AppContent() {
         isOpen={showBreathingModal}
         onClose={() => setShowBreathingModal(false)}
       />
+      <EmergencyModal
+        isOpen={showEmergencyModal}
+        onClose={() => setShowEmergencyModal(false)}
+      />
       <VoiceAssistantWidget />
-    </>
+
+      {/* Floating Presentation Demo Mode Controller for Hackathon */}
+      <HackathonDemoBar
+        currentView={view}
+        activeGame={activeGame}
+        isDeclineAlarmActive={isDeclineAlarmActive}
+        onNavigate={async (targetView, gameType) => {
+          if (targetView === 'game') {
+            setActiveGame(gameType || 'picture_recall');
+            setView('game');
+          } else if (targetView === 'dashboard') {
+            if (!user) {
+              await startOfflineGuestSession('Mary Vance');
+            }
+            setActiveGame(null);
+            setView('dashboard');
+          } else if (targetView === 'caregiver') {
+            setActiveGame(null);
+            setView('caregiver');
+          } else {
+            setActiveGame(null);
+            setView('landing');
+          }
+        }}
+        onToggleDeclineAlarm={(active) => {
+          setIsDeclineAlarmActive(active);
+          if (active) {
+            localStorage.setItem('recallia_simulating_decline', 'true');
+            setView('caregiver');
+          } else {
+            localStorage.removeItem('recallia_simulating_decline');
+            localStorage.removeItem('recallia_active_decline_alert');
+          }
+        }}
+        onOpenBreathing={() => setShowBreathingModal(true)}
+        onOpenEmergencySOS={() => setShowEmergencyModal(true)}
+        onOpenPhysicianReport={() => {
+          setView('caregiver');
+          setShowCaregiverReportModal(true);
+        }}
+      />
+    </div>
   );
 }
 

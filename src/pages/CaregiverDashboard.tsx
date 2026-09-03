@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Brain,
   Sparkles,
@@ -24,6 +24,7 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  Siren,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/lib/auth';
@@ -34,28 +35,46 @@ import {
   fetchGameSessions,
   verifyAndRedeemCaregiverCode,
   fetchLinkedPatientsForCaregiver,
+  fetchCognitiveDeclineAlerts,
+  saveCognitiveDeclineAlert,
+  acknowledgeCognitiveDeclineAlert,
+  resolveCognitiveDeclineAlert,
 } from '@/lib/firebaseService';
 import {
   DEFAULT_PARTICIPANTS,
   SAMPLE_HISTORICAL_SESSIONS,
+  SAMPLE_DECLINING_SESSIONS,
   computeCaregiverMetrics,
+  detectProgressiveDecline,
   type LinkedParticipant,
 } from '@/lib/caregiverData';
 import { CaregiverTrendsChart } from '@/components/CaregiverTrendsChart';
 import { CaregiverPrivacyModal } from '@/components/CaregiverPrivacyModal';
 import { CaregiverReportModal } from '@/components/CaregiverReportModal';
+import { CognitiveDeclineAlarmBanner } from '@/components/CognitiveDeclineAlarmBanner';
 import { MyMemoriesCaregiverTab } from '@/components/MyMemoriesCaregiverTab';
 import { MyMemoriesRecall } from '@/games/MyMemoriesRecall';
 import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
 import { useVoice } from '@/context/VoiceContext';
-import type { GameSession, GameType, EmergencyAlert } from '@/types';
+import type { GameSession, GameType, EmergencyAlert, CognitiveDeclineAlert } from '@/types';
 
 interface CaregiverDashboardProps {
   onBackToActivities: () => void;
   onOpenSettings?: () => void;
+  isSimulatingDeclineProp?: boolean;
+  onDeclineSimulationChange?: (active: boolean) => void;
+  showReportModalProp?: boolean;
+  onCloseReportModalProp?: () => void;
 }
 
-export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: CaregiverDashboardProps) {
+export function CaregiverDashboard({
+  onBackToActivities,
+  onOpenSettings,
+  isSimulatingDeclineProp,
+  onDeclineSimulationChange,
+  showReportModalProp,
+  onCloseReportModalProp,
+}: CaregiverDashboardProps) {
   const { user, signOut } = useAuth();
   const { t, currentLanguageMeta } = useI18n();
   const { speak } = useVoice();
@@ -72,6 +91,11 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>(participants[0]?.id ?? 'participant_mary');
   const [gameSessions, setGameSessions] = useState<GameSession[]>([]);
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
+  const [cognitiveDeclineAlerts, setCognitiveDeclineAlerts] = useState<CognitiveDeclineAlert[]>([]);
+  const [isSimulatingDecline, setIsSimulatingDecline] = useState<boolean>(() => {
+    if (typeof isSimulatingDeclineProp === 'boolean') return isSimulatingDeclineProp;
+    return localStorage.getItem('recallia_simulating_decline') === 'true';
+  });
   const [playingAlertId, setPlayingAlertId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -185,17 +209,42 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
     speak(`Linked profile for ${newEntry.name} successfully.`);
   };
 
+  // Synchronize external simulation toggle if provided by hackathon demo bar
+  useEffect(() => {
+    if (typeof isSimulatingDeclineProp === 'boolean') {
+      if (isSimulatingDeclineProp && !isSimulatingDecline) {
+        setIsSimulatingDecline(true);
+        setGameSessions(SAMPLE_DECLINING_SESSIONS);
+        const sim = detectProgressiveDecline(
+          SAMPLE_DECLINING_SESSIONS,
+          currentParticipant.name,
+          currentParticipant.id
+        );
+        if (sim) {
+          setCognitiveDeclineAlerts((prev) => [sim, ...prev.filter((a) => a.id !== sim.id)]);
+        }
+      } else if (!isSimulatingDeclineProp && isSimulatingDecline) {
+        setIsSimulatingDecline(false);
+        setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+        setCognitiveDeclineAlerts((prev) => prev.filter((a) => a.status !== 'active'));
+        localStorage.removeItem('recallia_active_decline_alert');
+        localStorage.removeItem('recallia_simulating_decline');
+      }
+    }
+  }, [isSimulatingDeclineProp, currentParticipant.name, currentParticipant.id, isSimulatingDecline]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [fetchedAlerts, fetchedSessions] = await Promise.all([
+      const [fetchedAlerts, fetchedSessions, fetchedDeclineAlerts] = await Promise.all([
         fetchEmergencyAlerts(),
         fetchGameSessions(selectedParticipantId || 'participant_mary'),
+        fetchCognitiveDeclineAlerts(selectedParticipantId || 'participant_mary'),
       ]);
 
       setEmergencyAlerts(fetchedAlerts);
-
+      
       // If user has linked participants in Firestore, load them
       if (user?.uid) {
         const cloudPatients = await fetchLinkedPatientsForCaregiver(user.uid);
@@ -225,15 +274,36 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
         }
       }
 
+      let activeSessions: GameSession[] = SAMPLE_HISTORICAL_SESSIONS;
       if (fetchedSessions.length > 0) {
         const existingIds = new Set(fetchedSessions.map((s) => s.id));
-        const combined = [
+        activeSessions = [
           ...fetchedSessions,
           ...SAMPLE_HISTORICAL_SESSIONS.filter((s) => !existingIds.has(s.id)),
         ];
-        setGameSessions(combined);
+        setGameSessions(activeSessions);
       } else {
         setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+      }
+
+      // Check current sessions for progressive cognitive decline
+      const detected = detectProgressiveDecline(
+        activeSessions,
+        currentParticipant?.name || 'Participant',
+        selectedParticipantId || 'participant_mary'
+      );
+
+      if (detected) {
+        setCognitiveDeclineAlerts((prev) => {
+          if (prev.some((a) => a.id === detected.id || (a.status === 'active' && a.user_id === detected.user_id))) {
+            return prev;
+          }
+          return [detected, ...prev];
+        });
+      } else {
+        // Current baseline is healthy: only keep historical resolved alerts, remove active alert
+        setCognitiveDeclineAlerts(fetchedDeclineAlerts.filter((a) => a.status === 'resolved'));
+        localStorage.removeItem('recallia_active_decline_alert');
       }
     } catch (err) {
       console.warn('Error loading caregiver data from Firestore:', err);
@@ -241,7 +311,7 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
     } finally {
       setLoading(false);
     }
-  }, [selectedParticipantId, user?.uid, user?.displayName, user?.email]);
+  }, [selectedParticipantId, user?.uid, user?.displayName, user?.email, currentParticipant?.name]);
 
   const handleResolveAlert = async (alertId: string) => {
     try {
@@ -254,6 +324,74 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
       speak('Emergency alert marked as resolved.');
     } catch (err) {
       console.warn('Error resolving alert in Firestore:', err);
+    }
+  };
+
+  const handleAcknowledgeDeclineAlert = async (alertId: string) => {
+    try {
+      await acknowledgeCognitiveDeclineAlert(alertId);
+      setCognitiveDeclineAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, status: 'acknowledged', siren_active: false } : a))
+      );
+      speak('Progressive cognitive decline alarm acknowledged.');
+    } catch (err) {
+      console.warn('Error acknowledging decline alert:', err);
+    }
+  };
+
+  const handleResolveDeclineAlert = async (alertId: string) => {
+    try {
+      await resolveCognitiveDeclineAlert(alertId, user?.email || 'Caregiver');
+      setCognitiveDeclineAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alertId
+            ? {
+                ...a,
+                status: 'resolved',
+                siren_active: false,
+                resolved_at: new Date().toISOString(),
+                resolved_by: user?.email || 'Caregiver',
+              }
+            : a
+        )
+      );
+      setIsSimulatingDecline(false);
+      onDeclineSimulationChange?.(false);
+      localStorage.removeItem('recallia_active_decline_alert');
+      localStorage.removeItem('recallia_simulating_decline');
+      setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+      speak('Cognitive decline alarm marked as handled and resolved.');
+    } catch (err) {
+      console.warn('Error resolving decline alert:', err);
+    }
+  };
+
+  const handleToggleSimulateDecline = async () => {
+    if (isSimulatingDecline) {
+      setIsSimulatingDecline(false);
+      onDeclineSimulationChange?.(false);
+      localStorage.removeItem('recallia_active_decline_alert');
+      localStorage.removeItem('recallia_simulating_decline');
+      setGameSessions(SAMPLE_HISTORICAL_SESSIONS);
+      setCognitiveDeclineAlerts((prev) => prev.filter((a) => a.status !== 'active'));
+      speak('Reset to standard healthy participant activity history.');
+    } else {
+      setIsSimulatingDecline(true);
+      onDeclineSimulationChange?.(true);
+      localStorage.setItem('recallia_simulating_decline', 'true');
+      setGameSessions(SAMPLE_DECLINING_SESSIONS);
+      const simulatedAlert = detectProgressiveDecline(
+        SAMPLE_DECLINING_SESSIONS,
+        currentParticipant.name,
+        currentParticipant.id
+      );
+      if (simulatedAlert) {
+        await saveCognitiveDeclineAlert(simulatedAlert);
+        setCognitiveDeclineAlerts((prev) => [simulatedAlert, ...prev.filter((a) => a.id !== simulatedAlert.id)]);
+        speak(
+          `Progressive cognitive decline alarm triggered for ${currentParticipant.name}. Siren symbol and clinical alarm activated.`
+        );
+      }
     }
   };
 
@@ -279,6 +417,34 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
 
   // Metrics computation
   const metrics = computeCaregiverMetrics(gameSessions);
+
+  // Active cognitive decline alert to show in siren alarm banner
+  // ONLY show when progressive decline is detected in sessions OR when simulation/demo is explicitly active
+  const activeDeclineAlert = useMemo(() => {
+    if (isSimulatingDecline) {
+      return (
+        cognitiveDeclineAlerts.find(
+          (a) => (a.status === 'active' || a.status === 'acknowledged') && a.user_id === currentParticipant.id
+        ) ||
+        detectProgressiveDecline(SAMPLE_DECLINING_SESSIONS, currentParticipant.name, currentParticipant.id)
+      );
+    }
+
+    // Normal mode: Evaluate current sessions for genuine progressive cognitive decline
+    const detected = detectProgressiveDecline(gameSessions, currentParticipant.name, currentParticipant.id);
+    if (!detected) {
+      // Patient is at healthy/normal baseline: NO siren sign, NO alarm banner!
+      return null;
+    }
+
+    // Check if this alert was already marked resolved by the caregiver
+    const isResolved = cognitiveDeclineAlerts.some(
+      (a) => a.user_id === currentParticipant.id && a.status === 'resolved' && a.id === detected.id
+    );
+    if (isResolved) return null;
+
+    return detected;
+  }, [isSimulatingDecline, cognitiveDeclineAlerts, currentParticipant.name, currentParticipant.id, gameSessions]);
 
   // Filtered recent activity sessions
   const filteredSessions = gameSessions.filter((s) => {
@@ -336,6 +502,25 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Active Siren Alarm Indicator Badge OR Stable Status Indicator */}
+            {activeDeclineAlert && activeDeclineAlert.status !== 'resolved' ? (
+              <div
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 text-white px-3 py-1.5 text-xs font-black animate-pulse shadow-sm"
+                title="Progressive cognitive decline alarm is active"
+              >
+                <Siren className="h-4 w-4 animate-spin [animation-duration:3s]" />
+                <span className="hidden sm:inline">SIREN ALARM ACTIVE</span>
+              </div>
+            ) : (
+              <div
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 text-xs font-bold"
+                title="Cognitive trajectory is stable. No decline detected."
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="hidden sm:inline">COGNITIVE STATUS: STABLE</span>
+              </div>
+            )}
+
             {/* Print / Report Button */}
             <button
               onClick={() => setShowReportModal(true)}
@@ -386,6 +571,19 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
 
       {/* Main Container */}
       <main className="mx-auto max-w-6xl px-6 py-8 md:py-12">
+        {/* Immediate Progressive Cognitive Decline Siren Alarm Banner */}
+        {activeDeclineAlert && activeDeclineAlert.status !== 'resolved' && (
+          <div className="mb-6">
+            <CognitiveDeclineAlarmBanner
+              alert={activeDeclineAlert}
+              onAcknowledge={handleAcknowledgeDeclineAlert}
+              onResolve={handleResolveDeclineAlert}
+              onOpenReportModal={() => setShowReportModal(true)}
+              contactPhone="+919876543210"
+            />
+          </div>
+        )}
+
         {/* Profile & Participant Switcher Header */}
         <section className="card !p-6 sm:!p-8 animate-fade-in-up">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -412,7 +610,7 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
               </div>
             </div>
 
-            {/* Participant Dropdown / Switcher */}
+            {/* Participant Dropdown / Switcher & Quick Actions */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <select
@@ -429,9 +627,24 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
                 <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-teal-500" />
               </div>
 
+              {/* Decline Alarm Simulation / Test Button */}
+              <button
+                type="button"
+                onClick={handleToggleSimulateDecline}
+                className={`inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-2.5 text-xs sm:text-sm font-bold transition-all shadow-xs ${
+                  isSimulatingDecline
+                    ? 'border-rose-400 bg-rose-100 text-rose-900 ring-2 ring-rose-400 animate-pulse'
+                    : 'border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100'
+                }`}
+                title="Simulate or verify the progressive cognitive decline siren alarm"
+              >
+                <Siren className="h-4 w-4 text-rose-600" />
+                <span>{isSimulatingDecline ? 'Reset Test Data' : 'Simulate Decline Alarm'}</span>
+              </button>
+
               <button
                 onClick={() => setShowNewMemberModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-2xl border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-sm font-bold text-teal-800 transition-colors hover:bg-teal-100"
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-teal-200 bg-white px-3.5 py-2.5 text-sm font-bold text-teal-800 transition-colors hover:bg-teal-50"
                 title="Link another family member"
               >
                 <UserPlus className="h-4 w-4 text-teal-600" />
@@ -941,8 +1154,11 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
 
       {/* Report Modal */}
       <CaregiverReportModal
-        isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
+        isOpen={showReportModal || !!showReportModalProp}
+        onClose={() => {
+          setShowReportModal(false);
+          onCloseReportModalProp?.();
+        }}
         participant={currentParticipant}
         totalSessions={metrics.totalSessions}
         weeklySessions={metrics.weeklySessions}
@@ -951,6 +1167,7 @@ export function CaregiverDashboard({ onBackToActivities, onOpenSettings }: Careg
         categories={metrics.categories}
         insights={metrics.insights}
         recentSessions={gameSessions}
+        activeDeclineAlert={activeDeclineAlert}
       />
 
       {/* Link New Family Member Modal */}

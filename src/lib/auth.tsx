@@ -49,6 +49,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: string | null }>;
   signInWithDemo: (role?: 'patient' | 'caregiver') => Promise<{ error: string | null }>;
+  startOfflineGuestSession: (customName?: string) => Promise<void>;
+  isOffline: boolean;
   signOut: () => Promise<void>;
   updateCaregiver: (caregiverInfo: CaregiverInfo) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -149,6 +151,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+
+  useEffect(() => {
+    const onOnline = () => setIsOffline(false);
+    const onOffline = () => setIsOffline(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   // Sync user profile from Firestore
   const syncProfile = async (firebaseUser: FirebaseUser | null) => {
@@ -534,6 +550,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
+  // Immediate Offline Guest Session (Single Tap, No Credentials Needed)
+  const startOfflineGuestSession = async (customName?: string): Promise<void> => {
+    const patientUid = 'participant_mary';
+    const cleanName = customName?.trim() || 'Mary Vance';
+    const guestUser = createSyntheticFirebaseUser({
+      uid: patientUid,
+      email: 'mary.vance@example.com',
+      displayName: cleanName,
+    });
+    const guestProfile: UserProfile = {
+      uid: patientUid,
+      name: cleanName,
+      email: 'mary.vance@example.com',
+      phone: '+91 98765 43210',
+      role: 'patient',
+      authProvider: 'password',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      caregiver: {
+        name: 'Sarah Vance',
+        phoneNumber: '+91 98765 43210',
+        relationship: 'Daughter',
+      },
+      emergencyContact: {
+        name: 'Sarah Vance',
+        phoneNumber: '+91 98765 43210',
+        relationship: 'Daughter',
+      },
+    };
+    saveLocalSession(guestUser, guestProfile);
+    await saveUserProfile(guestProfile);
+    setUser(guestUser);
+    setProfile(guestProfile);
+  };
+
   // Email/Password Sign In
   const signIn = async (email: string, password: string) => {
     try {
@@ -545,13 +596,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorCode = (err as { code?: string })?.code || '';
       const errorMessage = (err as Error)?.message || '';
 
-      // If Email/Password provider is disabled in Firebase Console, activate seamless fallback
+      // If Email/Password provider is disabled or device is offline, activate seamless fallback
       if (
         errorCode === 'auth/operation-not-allowed' ||
+        errorCode === 'auth/network-request-failed' ||
+        !navigator.onLine ||
         errorMessage.includes('auth/operation-not-allowed') ||
+        errorMessage.includes('network-request-failed') ||
         errorMessage.includes('operation-not-allowed')
       ) {
-        console.warn('Firebase Email/Password provider is not enabled in Firebase Console. Activating seamless local/anonymous session...');
+        console.warn('Firebase network unavailable or provider disabled. Activating seamless local/offline session...');
         return await fallbackLogin(email);
       }
 
@@ -601,13 +655,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorCode = (err as { code?: string })?.code || '';
       const errorMessage = (err as Error)?.message || '';
 
-      // If Email/Password provider is disabled in Firebase Console, activate seamless fallback
+      // If Email/Password provider is disabled or device is offline, activate seamless fallback
       if (
         errorCode === 'auth/operation-not-allowed' ||
+        errorCode === 'auth/network-request-failed' ||
+        !navigator.onLine ||
         errorMessage.includes('auth/operation-not-allowed') ||
+        errorMessage.includes('network-request-failed') ||
         errorMessage.includes('operation-not-allowed')
       ) {
-        console.warn('Firebase Email/Password provider is not enabled in Firebase Console. Activating seamless local/anonymous session...');
+        console.warn('Firebase network unavailable or provider disabled. Activating seamless local/offline session...');
         return await fallbackLogin(email, name);
       }
 
@@ -661,6 +718,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signInWithDemo,
+        startOfflineGuestSession,
+        isOffline,
         signOut,
         updateCaregiver,
         refreshProfile,

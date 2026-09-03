@@ -206,6 +206,51 @@ class SoundEffects {
       // AudioContext fallback
     }
   }
+
+  // Dual-frequency oscillating siren alarm for caregiver cognitive decline notifications
+  playSirenAlarm(durationSeconds = 4.5): () => void {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return () => {};
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      
+      // Siren frequency modulation: oscillating between 650Hz and 920Hz every 0.35 seconds
+      const cycleLength = 0.35;
+      const cycles = Math.ceil(durationSeconds / cycleLength);
+      for (let i = 0; i < cycles; i++) {
+        const t = now + i * cycleLength;
+        const half = t + cycleLength / 2;
+        osc.frequency.setValueAtTime(650, t);
+        osc.frequency.linearRampToValueAtTime(920, half);
+        osc.frequency.linearRampToValueAtTime(650, t + cycleLength);
+      }
+
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.setValueAtTime(0.09, now + durationSeconds - 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + durationSeconds);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + durationSeconds);
+
+      return () => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch {
+          // ignore
+        }
+      };
+    } catch {
+      return () => {};
+    }
+  }
 }
 
 export const sounds = new SoundEffects();

@@ -71,6 +71,28 @@ export interface EmergencyAlert {
   resolved_by?: string;
 }
 
+export interface CognitiveDeclineAlert {
+  id: string;
+  user_id: string;
+  participant_name: string;
+  alarm_level: 'critical' | 'warning' | 'moderate';
+  title: string;
+  description: string;
+  decline_percentage: number;
+  baseline_accuracy: number;
+  current_accuracy: number;
+  baseline_response_time_ms: number;
+  current_response_time_ms: number;
+  affected_areas: string[];
+  consecutive_drop_count: number;
+  recommendations: string[];
+  status: 'active' | 'acknowledged' | 'resolved';
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+  siren_active: boolean;
+}
+
 export interface PersonalMemory {
   id: string;
   participant_id: string;

@@ -106,6 +106,33 @@
         "sms_status": { "type": "string" }
       },
       "required": ["user_id", "participant_name", "status", "created_at"]
+    },
+    "cognitive_decline_alerts": {
+      "title": "Cognitive Decline Alert",
+      "description": "Progressive cognitive decline alarms with siren indicator, decline trajectory metrics, and clinical notes for caregiver intervention",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "participant_name": { "type": "string" },
+        "alarm_level": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "decline_percentage": { "type": "number" },
+        "baseline_accuracy": { "type": "number" },
+        "current_accuracy": { "type": "number" },
+        "baseline_response_time_ms": { "type": "number" },
+        "current_response_time_ms": { "type": "number" },
+        "affected_areas": { "type": "array" },
+        "consecutive_drop_count": { "type": "number" },
+        "recommendations": { "type": "array" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "resolved_at": { "type": "string" },
+        "resolved_by": { "type": "string" },
+        "siren_active": { "type": "boolean" }
+      },
+      "required": ["user_id", "participant_name", "alarm_level", "description", "created_at"]
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Brain, BookOpen, Puzzle, Heart, ArrowRight, Check, Globe } from 'lucide-react';
+import { Brain, BookOpen, Puzzle, Heart, ArrowRight, Check, Globe, Sparkles, WifiOff } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useI18n } from '@/i18n';
 import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
@@ -6,10 +6,11 @@ import { VoiceGuideControlBar } from '@/components/VoiceGuideControlBar';
 interface LandingPageProps {
   onGetStarted: () => void;
   onSignIn: () => void;
+  onStartOffline?: () => void;
   onOpenSettings?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onSignIn, onStartOffline, onOpenSettings }: LandingPageProps) {
   const { t, currentLanguageMeta } = useI18n();
 
   return (
@@ -52,12 +53,15 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+        <div className="mx-auto max-w-6xl px-6 py-14 md:py-20">
           <div className="grid items-center gap-12 md:grid-cols-2">
             <div className="animate-fade-in-up">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700">
-                <Heart className="h-4 w-4" />
-                {t.landing.badge}
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700 border border-teal-100">
+                <Heart className="h-4 w-4 text-teal-600" />
+                <span>{t.landing.badge}</span>
+                <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900 font-bold">
+                  <WifiOff className="h-3 w-3" /> Works Offline
+                </span>
               </div>
               <h1 className="font-display text-4xl font-semibold leading-tight text-teal-900 md:text-5xl">
                 {t.landing.heroTitle}
@@ -65,17 +69,35 @@ export function LandingPage({ onGetStarted, onSignIn, onOpenSettings }: LandingP
               <p className="mt-4 max-w-md text-lg leading-relaxed text-teal-700">
                 {t.landing.heroText}
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button onClick={onGetStarted} className="btn-primary">
-                  {t.landing.ctaPrimary}
-                  <ArrowRight className="h-5 w-5" />
-                </button>
-                <button onClick={onSignIn} className="btn-secondary">
-                  {t.landing.ctaSecondary}
-                </button>
+
+              {/* Action Buttons with Primary Offline Option */}
+              <div className="mt-8 flex flex-col gap-3">
+                {onStartOffline && (
+                  <button
+                    type="button"
+                    onClick={onStartOffline}
+                    className="flex w-full sm:w-auto items-center justify-center gap-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-teal-950 font-bold px-6 py-4 text-base sm:text-lg shadow-soft transition-all hover:scale-[1.01]"
+                  >
+                    <Sparkles className="h-5 w-5 text-teal-900 shrink-0" />
+                    <span>Play Now (No Internet Needed)</span>
+                    <ArrowRight className="h-5 w-5 ml-1" />
+                  </button>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button onClick={onGetStarted} className="btn-primary flex-1 justify-center">
+                    {t.landing.ctaPrimary}
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                  <button onClick={onSignIn} className="btn-secondary flex-1 justify-center">
+                    {t.landing.ctaSecondary}
+                  </button>
+                </div>
               </div>
-              <p className="mt-6 text-sm font-semibold text-teal-500">
-                {t.landing.heroNote}
+
+              <p className="mt-5 text-xs sm:text-sm font-semibold text-teal-700 flex items-center gap-1.5">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>Designed for seniors: Works 100% offline with zero login required.</span>
               </p>
             </div>
 

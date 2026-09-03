@@ -1,6 +1,6 @@
-import { Printer, X, ShieldCheck, Activity, Sparkles } from 'lucide-react';
+import { Printer, X, ShieldCheck, Activity, Sparkles, Siren } from 'lucide-react';
 import type { LinkedParticipant, CategorySummary, RecalliaInsight } from '@/lib/caregiverData';
-import type { GameSession } from '@/types';
+import type { GameSession, CognitiveDeclineAlert } from '@/types';
 
 interface CaregiverReportModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface CaregiverReportModalProps {
   categories: CategorySummary[];
   insights: RecalliaInsight[];
   recentSessions: GameSession[];
+  activeDeclineAlert?: CognitiveDeclineAlert | null;
 }
 
 export function CaregiverReportModal({
@@ -26,6 +27,7 @@ export function CaregiverReportModal({
   categories,
   insights,
   recentSessions,
+  activeDeclineAlert,
 }: CaregiverReportModalProps) {
   if (!isOpen) return null;
 
@@ -97,6 +99,56 @@ export function CaregiverReportModal({
               </span>
             </div>
           </div>
+
+          {/* Progressive Cognitive Decline Alarm Documentation */}
+          {activeDeclineAlert && (
+            <div className="rounded-2xl border-2 border-rose-500 bg-rose-50/80 p-5 print:border-rose-600 print:bg-rose-50">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white shadow-xs">
+                  <Siren className="h-5 w-5 animate-pulse" />
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[11px] font-black uppercase text-white">
+                      🚨 Clinical Alarm: Progressive Cognitive Decline
+                    </span>
+                    <span className="text-xs font-bold text-rose-800">
+                      Level: {activeDeclineAlert.alarm_level.toUpperCase()}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-base font-bold text-rose-950">
+                    {activeDeclineAlert.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm font-semibold text-rose-900 leading-relaxed">
+                    {activeDeclineAlert.description}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                    <div className="bg-white/90 p-2 rounded-xl border border-rose-200 text-center">
+                      <span className="text-[10px] font-bold text-gray-500">Decline Trajectory</span>
+                      <p className="font-bold text-rose-600 text-sm">-{activeDeclineAlert.decline_percentage}%</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-rose-200 text-center">
+                      <span className="text-[10px] font-bold text-gray-500">Accuracy Drop</span>
+                      <p className="font-bold text-gray-900 text-sm">{activeDeclineAlert.baseline_accuracy}% → {activeDeclineAlert.current_accuracy}%</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-rose-200 text-center">
+                      <span className="text-[10px] font-bold text-gray-500">Response Latency</span>
+                      <p className="font-bold text-amber-700 text-sm">{(activeDeclineAlert.current_response_time_ms / 1000).toFixed(1)}s</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-rose-200 text-center">
+                      <span className="text-[10px] font-bold text-gray-500">Affected Domains</span>
+                      <p className="font-bold text-gray-900 text-xs truncate">{activeDeclineAlert.affected_areas?.join(', ') || 'Recall'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 text-[11px] text-rose-800 bg-white/70 p-2.5 rounded-xl border border-rose-200">
+                    <span className="font-bold">Physician Notes:</span> Acute performance drop of &gt;15% observed across consecutive sessions. Recommended clinical screening includes evaluating reversible secondary causes (UTI, hydration, electrolyte panel, medication interactions/compliance, and sleep quality).
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Key Summary Metrics Grid */}
           <div>
