@@ -5,6 +5,15 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import twilio from 'twilio';
+import { requireAuth, type AuthRequest } from './src/middleware/auth.ts';
+import { getOrCreateUser, getUserByUid } from './src/db/users.ts';
+import {
+  getActivities,
+  recordGameSession,
+  getGameSessionsByUser,
+  logEmergencyAlert,
+  getEmergencyAlertsByUser,
+} from './src/db/queries.ts';
 
 dotenv.config();
 
@@ -54,6 +63,114 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Cloud SQL User Profile Sync
+app.post('/api/users/sync', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    const email = req.user?.email || '';
+    const name = req.body?.name || req.user?.name || '';
+    if (!uid) {
+      res.status(401).json({ error: 'User UID missing from token' });
+      return;
+    }
+    const user = await getOrCreateUser(uid, email, name);
+    res.json({ success: true, user });
+  } catch (error: unknown) {
+    console.error('Failed to sync user to Cloud SQL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to sync user';
+    res.status(500).json({ error: message });
+  }
+});
+
+// Cloud SQL Get Current User
+app.get('/api/users/me', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const user = await getUserByUid(uid);
+    res.json({ success: true, user });
+  } catch (error: unknown) {
+    console.error('Failed to get user:', error);
+    const message = error instanceof Error ? error.message : 'Failed to get user';
+    res.status(500).json({ error: message });
+  }
+});
+
+// Cloud SQL Activities
+app.get('/api/activities', async (req, res) => {
+  try {
+    const items = await getActivities();
+    res.json({ success: true, activities: items });
+  } catch (error: unknown) {
+    console.error('Failed to get activities from Cloud SQL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to get activities';
+    res.status(500).json({ error: message });
+  }
+});
+
+// Cloud SQL Game Sessions
+app.post('/api/game-sessions', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const { gameType, gameCategory, score, accuracy, mistakes, responseTimeMs, difficulty } = req.body;
+    const session = await recordGameSession({
+      userUid: uid,
+      gameType: gameType || 'picture_recall',
+      gameCategory,
+      score: Number(score) || 0,
+      accuracy: Number(accuracy) || 0,
+      mistakes: Number(mistakes) || 0,
+      responseTimeMs: Number(responseTimeMs) || 0,
+      difficulty: difficulty || 'gentle',
+    });
+    res.json({ success: true, session });
+  } catch (error: unknown) {
+    console.error('Failed to record game session in Cloud SQL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to record game session';
+    res.status(500).json({ error: message });
+  }
+});
+
+app.get('/api/game-sessions', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const sessions = await getGameSessionsByUser(uid);
+    res.json({ success: true, sessions });
+  } catch (error: unknown) {
+    console.error('Failed to get game sessions from Cloud SQL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to get game sessions';
+    res.status(500).json({ error: message });
+  }
+});
+
+// Cloud SQL Emergency Alerts
+app.get('/api/emergency/alerts', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const alerts = await getEmergencyAlertsByUser(uid);
+    res.json({ success: true, alerts });
+  } catch (error: unknown) {
+    console.error('Failed to get emergency alerts from Cloud SQL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to get emergency alerts';
+    res.status(500).json({ error: message });
+  }
+});
+
 // Emergency SMS Dispatch Endpoint
 app.post('/api/emergency/send-sms', async (req, res) => {
   try {
@@ -72,6 +189,16 @@ app.post('/api/emergency/send-sms', async (req, res) => {
         error: 'Caregiver phone number is required.',
       });
       return;
+    }
+
+    if (req.body.userUid) {
+      logEmergencyAlert({
+        userUid: req.body.userUid,
+        participantName,
+        messageText,
+        audioUrl,
+        tags: Array.isArray(tags) ? tags.join(', ') : '',
+      }).catch((err: unknown) => console.warn('Cloud SQL alert log notice:', err));
     }
 
     const twilio = getTwilio();
